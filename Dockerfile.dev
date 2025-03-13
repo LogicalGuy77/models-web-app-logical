@@ -1,0 +1,86 @@
+# --- Clone the kubeflow/kubeflow code ---
+FROM ubuntu AS fetch-kubeflow-kubeflow
+
+RUN apt-get update && apt-get install git -y
+
+WORKDIR /kf
+COPY ./frontend/COMMIT ./
+RUN git clone https://github.com/kubeflow/kubeflow.git && \
+    COMMIT=$(cat ./COMMIT) && \
+    cd kubeflow && \
+    git checkout $COMMIT
+
+# --- Build the backend kubeflow-wheel ---
+FROM python:3.12-slim AS backend-kubeflow-wheel
+
+WORKDIR /src
+
+RUN pip install setuptools wheel
+
+ARG BACKEND_LIB=/kf/kubeflow/components/crud-web-apps/common/backend
+COPY --from=fetch-kubeflow-kubeflow $BACKEND_LIB .
+RUN python setup.py sdist bdist_wheel
+
+# --- Build the frontend kubeflow library ---
+FROM node:16.16-buster-slim AS frontend-kubeflow-lib
+
+WORKDIR /src
+
+ARG LIB=/kf/kubeflow/components/crud-web-apps/common/frontend/kubeflow-common-lib
+COPY --from=fetch-kubeflow-kubeflow $LIB/package*.json ./
+RUN npm install
+
+COPY --from=fetch-kubeflow-kubeflow $LIB/ ./
+RUN npm run build
+
+FROM node:16.16-buster-slim AS frontend
+
+WORKDIR /src
+COPY ./frontend/package*.json ./
+RUN npm install
+COPY --from=frontend-kubeflow-lib /src/dist/kubeflow/ ./node_modules/kubeflow/
+
+COPY ./frontend/ .
+
+RUN npm run build -- --output-path=./dist/default --configuration=production
+
+# Development Image 
+FROM python:3.12-slim
+
+WORKDIR /package
+COPY --from=backend-kubeflow-wheel /src/dist .
+RUN pip3 install *.whl
+
+WORKDIR /src
+COPY ./backend/requirements.txt .
+RUN pip3 install -r requirements.txt
+
+# Add development dependencies
+RUN pip3 install kubernetes pytest-mock
+
+# Copy your backend code
+COPY ./backend/apps/ ./apps
+COPY ./backend/entrypoint.py .
+COPY ./backend/Makefile .
+COPY --from=frontend /src/dist/default/ /src/apps/v1beta1/static/
+
+# Set development environment variables
+ENV APP_PREFIX=/
+ENV APP_VERSION=v1beta1
+ENV APP_DISABLE_AUTH="True"
+ENV APP_SECURE_COOKIES="False"
+ENV BACKEND_MODE="dev"
+
+# Create a mock script for development
+RUN mkdir -p /src/mock
+# Create a simple mock_k8s.py file in case the external one isn't available
+COPY mock_k8s.py /src/mock/mock_k8s.py
+
+# Modify entrypoint.py to use the mock in dev mode
+RUN sed -i '3i\\n# Load mock K8s for development\nif os.environ.get("BACKEND_MODE") == "dev":\n    from mock.mock_k8s import setup_mock_k8s\n    setup_mock_k8s()\n' entrypoint.py
+
+# Modify the run part of entrypoint.py to use debug mode in dev
+RUN sed -i 's/app.run()/debug_mode = os.environ.get("BACKEND_MODE") == "dev"\napp.run(host="0.0.0.0", port=5000, debug=debug_mode)/' entrypoint.py
+
+# Entrypoint using dev mode
+ENTRYPOINT ["python", "entrypoint.py"]
