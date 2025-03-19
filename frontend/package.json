@@ -15,7 +15,7 @@
     "i18n:extract": "ng extract-i18n --output-path i18n",
     "test": "ng test",
     "test:prod": "ng test --browsers=ChromeHeadless --watch=false",
-    "lint-check": "ng lint",
+    "lint-check": "npx ng lint",
     "lint": "ng lint --fix",
     "e2e": "ng e2e"
   },
