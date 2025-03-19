@@ -27,6 +27,7 @@ jobs:
       - name: Lint code
         run: |
           cd frontend
+          npm install
           npm run lint-check
 
   frontend-unit-tests:
