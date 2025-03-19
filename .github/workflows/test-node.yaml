@@ -17,7 +17,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: 12
+          node-version: 16
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Format code
         run: |
@@ -27,7 +29,7 @@ jobs:
       - name: Lint code
         run: |
           cd frontend
-          npm install
+          npm ci --no-audit
           npm run lint-check
 
   frontend-unit-tests:
@@ -41,7 +43,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: 12
+          node-version: 16
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Fetch Kubeflow and install common code dependencies
         run: |
@@ -50,14 +54,14 @@ jobs:
           cd kubeflow
           git checkout $COMMIT
           cd components/crud-web-apps/common/frontend/kubeflow-common-lib
-          npm i
+          npm ci --no-audit
           npm run build
           npm link ./dist/kubeflow
 
       - name: Install MWA dependencies
         run: |
           cd frontend
-          npm i
+          npm ci --no-audit
           npm link kubeflow
 
       - name: Run unit tests
