@@ -48,12 +48,12 @@ jobs:
           find . -name "*.scss" -exec sed -i "s|@use '~@angular/material' as mat;|@use '@angular/material' as mat;|" {} \;
           npm ci --no-audit
           npm run build
-          npm link ./dist/kubeflow
+          mkdir -p /home/runner/work/models-web-app/models-web-app/frontend/node_modules/kubeflow/styles
+          cp -r dist/kubeflow/styles/* /home/runner/work/models-web-app/models-web-app/frontend/node_modules/kubeflow/styles/
       - name: Install MWA dependencies
         run: |
           cd frontend
           npm ci --no-audit
-          npm link kubeflow
       - name: Run unit tests
         run: |
           cd frontend
