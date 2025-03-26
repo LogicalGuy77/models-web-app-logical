@@ -37,25 +37,28 @@ jobs:
           node-version: 16
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      - name: Fetch Kubeflow and install common code dependencies
+      - name: Fetch Kubeflow and Build Common Library
         run: |
           COMMIT=$(cat frontend/COMMIT)
           cd /tmp && git clone https://github.com/kubeflow/kubeflow.git
           cd kubeflow
           git checkout $COMMIT
           cd components/crud-web-apps/common/frontend/kubeflow-common-lib
+          # Patch SCSS files to fix tilde imports
+          find . -name "*.scss" -exec sed -i "s|@use '~@angular/material' as mat;|@use '@angular/material' as mat;|" {} \;
           npm ci --no-audit
           npm run build
-          npm link ./dist/kubeflow
-      - name: Install MWA dependencies and copy styles
+      - name: Install Frontend Dependencies and Copy Styles
         run: |
           cd frontend
           npm ci --no-audit
-          npm link kubeflow
-          mkdir -p /tmp/temp-styles
-          cp -r /tmp/kubeflow/components/crud-web-apps/common/frontend/kubeflow-common-lib/dist/kubeflow/styles/* /tmp/temp-styles/
-          cp -r /tmp/temp-styles/* node_modules/kubeflow/styles/
-      - name: Run unit tests
+          # Ensure the kubeflow directory exists and copy styles directly
+          mkdir -p node_modules/kubeflow/styles
+          cp -r /tmp/kubeflow/components/crud-web-apps/common/frontend/kubeflow-common-lib/dist/kubeflow/styles/* node_modules/kubeflow/styles/
+      - name: Verify Copied Styles (Debugging)
+        run: |
+          ls -l frontend/node_modules/kubeflow/styles/
+      - name: Run Unit Tests
         run: |
           cd frontend
           npm run test:prod
