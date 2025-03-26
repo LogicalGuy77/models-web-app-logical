@@ -44,20 +44,22 @@ jobs:
           cd kubeflow
           git checkout $COMMIT
           cd components/crud-web-apps/common/frontend/kubeflow-common-lib
-          # Patch SCSS files to fix tilde imports
-          find . -name "*.scss" -exec sed -i "s|@use '~@angular/material' as mat;|@use '@angular/material' as mat;|" {} \;
           npm ci --no-audit
           npm run build
+          npm link ./dist/kubeflow
+
       - name: Install Frontend Dependencies and Copy Styles
         run: |
           cd frontend
           npm ci --no-audit
-          # Ensure the kubeflow directory exists and copy styles directly
-          mkdir -p node_modules/kubeflow/styles
+          npm link kubeflow
+          # Copy styles to ensure they are physically present
           cp -r /tmp/kubeflow/components/crud-web-apps/common/frontend/kubeflow-common-lib/dist/kubeflow/styles/* node_modules/kubeflow/styles/
-      - name: Verify Copied Styles (Debugging)
+
+      - name: Verify Copied Styles
         run: |
           ls -l frontend/node_modules/kubeflow/styles/
+
       - name: Run Unit Tests
         run: |
           cd frontend
