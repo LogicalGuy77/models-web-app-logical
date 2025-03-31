@@ -6,6 +6,7 @@ on:
     branches:
       - master
       - release-*
+      - logicalguy-patch-5
     
     paths:
       - releasing/VERSION

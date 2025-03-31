@@ -6,6 +6,7 @@ on:
     branches:
       - master
       - release-*
+      - logicalguy-patch-5
     
     # Publish `v1.2.3` tags as releases.
     tags:
