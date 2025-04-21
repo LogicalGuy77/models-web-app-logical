@@ -6,7 +6,6 @@
 !frontend/
 !backend/
 !Makefile
-!mock_k8s.py
 
 # Ignore node_modules and pycache inside accepted dirs
 **/node_modules/*

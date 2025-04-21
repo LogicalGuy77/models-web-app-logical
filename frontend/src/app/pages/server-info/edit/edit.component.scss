@@ -1,6 +1,11 @@
-[ace-editor] {
-  width: auto;
-  height: 700px;
+ace {
+  display: block;
+  border: 1px solid #e0e0e0;
+  width: 100%;
+}
+
+.edit-component {
+  margin-top: 1rem;
 }
 
 .edit-component {

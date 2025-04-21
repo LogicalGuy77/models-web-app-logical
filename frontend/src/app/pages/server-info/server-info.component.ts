@@ -46,9 +46,12 @@ export class ServerInfoComponent implements OnInit, OnDestroy {
       text: 'EDIT',
       icon: 'edit',
       fn: () => {
+        console.log('[Debug] EDIT button clicked. Setting isEditing = true.'); // Add log
         // Make a copy of current isvc so polling update doesn't affect editing
-        this.editingIsvc = {...this.inferenceService};
+        this.editingIsvc = JSON.parse(JSON.stringify(this.inferenceService)); // Use deep copy
         this.isEditing = true;
+        console.log('[Debug] isEditing is now:', this.isEditing); // Add log
+        console.log('[Debug] editingIsvc data:', this.editingIsvc); // Add log
       },
     }),
     new ToolbarButton({
@@ -128,6 +131,7 @@ export class ServerInfoComponent implements OnInit, OnDestroy {
   }
 
   public cancelEdit() {
+    console.log('[Debug] cancelEdit called. Setting isEditing = false.'); // Add log
     this.isEditing = false;
   }
 
