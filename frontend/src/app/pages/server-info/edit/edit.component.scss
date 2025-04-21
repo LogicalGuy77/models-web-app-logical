@@ -6,37 +6,27 @@ ace {
 
 .edit-component {
   margin-top: 1rem;
+
+  // Target the primary raised button (Submit)
+  button[mat-raised-button][color='primary'] {
+    background-color: #1976d2; // Example dark blue - adjust as needed
+    color: white; // Ensure text is readable
+  }
+
+  // Optional: Style the stroked button (Cancel) if desired
+  // button[mat-stroked-button] {
+  //   color: #1976d2; // Example dark blue
+  //   border-color: #1976d2; // Example dark blue
+  // }
 }
 
-.edit-component {
-  margin-top: 1rem;
-}
+// Removed duplicate .edit-component rule
 
-.edit-top-divider {
-  margin-top: 1rem;
-}
+// Removed .edit-top-divider rule as it's not used in the template
 
-.bar {
-  padding: 0.5rem 0;
-}
+// Removed .bar rules as they are not used in the template
 
-.bar > * {
-  margin-top: auto;
-  margin-bottom: auto;
-}
-
-.bar > button:first-child {
-  margin-left: 35%;
-}
-
-.bar > button:nth-child(2) {
-  margin-left: 1rem;
-  margin-right: 1rem;
-}
-
-.text-area > * {
-  white-space: break-spaces;
-}
+// Removed .text-area rule as it's not used in the template
 
 .waiting-button-wrapper {
   display: flex;
