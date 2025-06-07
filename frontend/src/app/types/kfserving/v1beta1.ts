@@ -24,6 +24,8 @@ export interface InferenceServiceIR extends InferenceServiceK8s {
 }
 
 export interface InferenceServiceK8s extends K8sObject {
+  apiVersion?: string; // Added to ensure TypeScript knows it for mocks
+  kind?: string; // Added to ensure TypeScript knows it for mocks
   metadata?: V1ObjectMeta;
   spec?: InferenceServiceSpec;
   status?: InferenceServiceStatus;
