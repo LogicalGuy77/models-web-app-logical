@@ -1,4 +1,9 @@
-import { getK8sObjectUiStatus, getCondition, getPredictorExtensionSpec, getPredictorRuntime } from './utils';
+import {
+  getK8sObjectUiStatus,
+  getCondition,
+  getPredictorExtensionSpec,
+  getPredictorRuntime,
+} from './utils';
 import { STATUS_TYPE, K8sObject } from 'kubeflow';
 
 // Tests for getCondition function
@@ -223,7 +228,7 @@ describe('getPredictorExtensionSpec', () => {
         runtimeVersion: '2.6.0',
         protocolVersion: 'v1',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorExtensionSpec(predictor);
@@ -240,7 +245,7 @@ describe('getPredictorExtensionSpec', () => {
         runtimeVersion: '0.23.2',
         protocolVersion: 'v1',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorExtensionSpec(predictor);
@@ -256,7 +261,7 @@ describe('getPredictorExtensionSpec', () => {
         runtimeVersion: '2.6.0',
         protocolVersion: 'v1',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorExtensionSpec(predictor);
@@ -333,9 +338,9 @@ describe('getPredictorRuntime', () => {
       model: {
         modelFormat: { name: 'tensorflow' },
         runtime: 'custom-tensorflow-runtime',
-        storageUri: 's3://bucket/model'
+        storageUri: 's3://bucket/model',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -346,9 +351,9 @@ describe('getPredictorRuntime', () => {
     const predictor = {
       triton: {
         storageUri: 's3://bucket/model',
-        runtimeVersion: '2.0'
+        runtimeVersion: '2.0',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -359,9 +364,9 @@ describe('getPredictorRuntime', () => {
     const predictor = {
       onnx: {
         storageUri: 's3://bucket/model',
-        runtimeVersion: '1.0'
+        runtimeVersion: '1.0',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -372,9 +377,9 @@ describe('getPredictorRuntime', () => {
     const predictor = {
       tensorflow: {
         storageUri: 's3://bucket/model',
-        runtimeVersion: '2.6.0'
+        runtimeVersion: '2.6.0',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -385,9 +390,9 @@ describe('getPredictorRuntime', () => {
     const predictor = {
       pytorch: {
         storageUri: 's3://bucket/model',
-        runtimeVersion: '1.9'
+        runtimeVersion: '1.9',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -398,9 +403,9 @@ describe('getPredictorRuntime', () => {
     const predictor = {
       sklearn: {
         storageUri: 's3://bucket/model',
-        protocolVersion: 'v2'
+        protocolVersion: 'v2',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -411,9 +416,9 @@ describe('getPredictorRuntime', () => {
     const predictor = {
       sklearn: {
         storageUri: 's3://bucket/model',
-        protocolVersion: 'v1'
+        protocolVersion: 'v1',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -424,9 +429,9 @@ describe('getPredictorRuntime', () => {
     const predictor = {
       xgboost: {
         storageUri: 's3://bucket/model',
-        protocolVersion: 'v2'
+        protocolVersion: 'v2',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -436,9 +441,9 @@ describe('getPredictorRuntime', () => {
   test('should return XGBoost ModelServer for xgboost without v2 protocol', () => {
     const predictor = {
       xgboost: {
-        storageUri: 's3://bucket/model'
+        storageUri: 's3://bucket/model',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -448,9 +453,9 @@ describe('getPredictorRuntime', () => {
   test('should return PMML ModelServer for pmml predictor type', () => {
     const predictor = {
       pmml: {
-        storageUri: 's3://bucket/model'
+        storageUri: 's3://bucket/model',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -460,9 +465,9 @@ describe('getPredictorRuntime', () => {
   test('should return LightGBM ModelServer for lightgbm predictor type', () => {
     const predictor = {
       lightgbm: {
-        storageUri: 's3://bucket/model'
+        storageUri: 's3://bucket/model',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -472,9 +477,9 @@ describe('getPredictorRuntime', () => {
   test('should return MLFlow ModelServer for mlflow predictor type', () => {
     const predictor = {
       mlflow: {
-        storageUri: 's3://bucket/model'
+        storageUri: 's3://bucket/model',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -486,9 +491,9 @@ describe('getPredictorRuntime', () => {
       containers: [
         {
           name: 'custom-container',
-          image: 'custom-image:latest'
-        }
-      ]
+          image: 'custom-image:latest',
+        },
+      ],
     } as any;
 
     const result = getPredictorRuntime(predictor);
@@ -499,14 +504,12 @@ describe('getPredictorRuntime', () => {
     const predictor = {
       model: {
         modelFormat: { name: 'sklearn' },
-        storageUri: 's3://bucket/model'
+        storageUri: 's3://bucket/model',
       },
-      containers: []
+      containers: [],
     } as any;
 
     const result = getPredictorRuntime(predictor);
     expect(result).toBe('SKLearn ModelServer');
   });
 });
-
-
