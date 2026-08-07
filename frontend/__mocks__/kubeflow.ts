@@ -28,8 +28,10 @@ export interface Status {
 }
 
 // Interface for Kubernetes object
+// The kind field is optional to match the real library declaration in
+// node_modules/kubeflow/lib/utils/kubernetes.model.d.ts.
 export interface K8sObject {
-  kind: string;
+  kind?: string;
   apiVersion?: string;
   metadata?: {
     name?: string;

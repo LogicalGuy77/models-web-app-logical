@@ -66,7 +66,20 @@ export class IndexComponent implements OnInit, OnDestroy {
     },
   });
 
-  buttons: ToolbarButton[] = [this.viewGraphsButton, this.newEndpointButton];
+  private viewLLMInferenceServicesButton = new ToolbarButton({
+    text: $localize`View LLMInferenceServices`,
+    icon: 'psychology',
+    stroked: true,
+    fn: () => {
+      this.router.navigate(['/llm-inference-services']);
+    },
+  });
+
+  buttons: ToolbarButton[] = [
+    this.viewLLMInferenceServicesButton,
+    this.viewGraphsButton,
+    this.newEndpointButton,
+  ];
 
   constructor(
     private backend: MWABackendService,

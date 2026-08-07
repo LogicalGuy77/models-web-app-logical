@@ -1,0 +1,171 @@
+<div class="lib-content-wrapper details-page">
+  <lib-title-actions-toolbar
+    title="LLMInferenceService details"
+    [backButton]="true"
+    (back)="navigateBack()"
+    class="margin-bottom"
+    i18n-title
+  >
+  </lib-title-actions-toolbar>
+
+  <div class="details-page-outer">
+    <lib-loading-spinner *ngIf="!detailsLoaded"></lib-loading-spinner>
+
+    <ng-container *ngIf="detailsLoaded">
+      <div class="details-page-inner">
+        <div class="details-page-inner-2">
+          <lib-status-icon
+            class="small-padding-right"
+            [phase]="status.phase"
+          ></lib-status-icon>
+          <div class="title">{{ serviceName }}</div>
+        </div>
+        <div class="small-padding-up">
+          <lib-status-info [status]="status"></lib-status-info>
+        </div>
+      </div>
+
+      <mat-tab-group
+        class="page-placement"
+        dynamicHeight
+        animationDuration="0ms"
+      >
+        <mat-tab label="OVERVIEW">
+          <div class="page-padding">
+            <lib-details-list-item key="Name">
+              {{ llmInferenceService.metadata?.name }}
+            </lib-details-list-item>
+            <lib-details-list-item key="Namespace">
+              {{ llmInferenceService.metadata?.namespace }}
+            </lib-details-list-item>
+            <lib-details-list-item key="Created">
+              <lib-date-time
+                [date]="llmInferenceService.metadata?.creationTimestamp"
+              ></lib-date-time>
+            </lib-details-list-item>
+            <lib-details-list-item
+              key="URL"
+              *ngIf="llmInferenceService.status?.url"
+            >
+              <a
+                [href]="llmInferenceService.status.url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ llmInferenceService.status.url }}
+              </a>
+            </lib-details-list-item>
+            <lib-details-list-item
+              key="Model"
+              *ngIf="llmInferenceService.spec?.model?.name"
+            >
+              {{ llmInferenceService.spec.model.name }}
+            </lib-details-list-item>
+            <lib-details-list-item key="Model URI">
+              {{ llmInferenceService.spec?.model?.uri }}
+            </lib-details-list-item>
+            <lib-details-list-item key="Topology">
+              {{ topology }}
+            </lib-details-list-item>
+            <lib-details-list-item key="Parallelism" *ngIf="parallelism">
+              {{ parallelism }}
+            </lib-details-list-item>
+            <lib-details-list-item key="Router">
+              {{ router }}
+            </lib-details-list-item>
+            <lib-details-list-item
+              key="Replicas"
+              *ngIf="llmInferenceService.spec?.replicas !== undefined"
+            >
+              {{ llmInferenceService.spec.replicas }}
+            </lib-details-list-item>
+            <lib-details-list-item
+              key="Base configurations"
+              *ngIf="baseConfigurations.length > 0"
+            >
+              {{ baseConfigurations.join(', ') }}
+            </lib-details-list-item>
+            <lib-details-list-item
+              key="Applied configurations"
+              *ngIf="appliedConfigurations.length > 0"
+            >
+              {{ appliedConfigurations.join(', ') }}
+            </lib-details-list-item>
+
+            <h3 class="section-header">Conditions</h3>
+            <div *ngIf="conditions.length > 0" style="overflow-x: auto">
+              <table class="events-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%">Type</th>
+                    <th style="width: 10%">Status</th>
+                    <th style="width: 20%">Reason</th>
+                    <th style="width: 50%">Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let condition of conditions">
+                    <td>{{ condition.type }}</td>
+                    <td>{{ condition.status }}</td>
+                    <td>{{ condition.reason }}</td>
+                    <td>{{ condition.message }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div *ngIf="conditions.length === 0" class="no-events">
+              No conditions reported yet
+            </div>
+          </div>
+        </mat-tab>
+
+        <mat-tab label="EVENTS">
+          <div class="page-padding">
+            <div *ngIf="detailsLoaded">
+              <div *ngIf="events && events.length > 0" style="overflow-x: auto">
+                <table class="events-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 10%">Type</th>
+                      <th style="width: 15%">Reason</th>
+                      <th style="width: 50%">Message</th>
+                      <th style="width: 25%">Last Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let event of events">
+                      <td>
+                        <span class="event-type-badge">
+                          {{ event.type }}
+                        </span>
+                      </td>
+                      <td>{{ event.reason }}</td>
+                      <td>{{ event.message }}</td>
+                      <td class="event-timestamp">
+                        {{ event.lastTimestamp }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div *ngIf="!events || events.length === 0" class="no-events">
+                No events available
+              </div>
+            </div>
+          </div>
+        </mat-tab>
+
+        <mat-tab label="YAML">
+          <div class="yaml-container">
+            <pre *ngIf="detailsLoaded && yaml" class="yaml-content">{{
+              yaml
+            }}</pre>
+            <div *ngIf="detailsLoaded && !yaml" class="no-events">
+              No YAML content available
+            </div>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </ng-container>
+  </div>
+</div>
