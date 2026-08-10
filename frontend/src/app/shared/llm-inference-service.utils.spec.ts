@@ -7,6 +7,7 @@ import {
   getLLMInferenceServiceStatus,
   summarizeParallelism,
   summarizeRouter,
+  summarizeScaling,
 } from './llm-inference-service.utils';
 import { LLMInferenceServiceK8s } from '../types/kfserving/llm-inference-service';
 
@@ -111,6 +112,15 @@ describe('summarizeParallelism', () => {
       }),
     ).toBe('pipeline=0');
   });
+
+  it('includes the data parallelism RPC port', () => {
+    expect(
+      summarizeParallelism({
+        model: { uri: 'hf://a/b' },
+        parallelism: { data: 4, dataRPCPort: 5555 },
+      }),
+    ).toBe('data=4, data-rpc-port=5555');
+  });
 });
 
 describe('summarizeRouter', () => {
@@ -124,13 +134,65 @@ describe('summarizeRouter', () => {
     );
   });
 
-  it('lists the requested router components', () => {
+  it('labels empty component objects as managed', () => {
     expect(
       summarizeRouter({
         model: { uri: 'hf://a/b' },
         router: { gateway: {}, route: {}, scheduler: {} },
       }),
-    ).toBe('gateway, route, scheduler');
+    ).toBe('gateway (managed), route (managed), scheduler');
+  });
+
+  it('labels components with references as referenced', () => {
+    expect(
+      summarizeRouter({
+        model: { uri: 'hf://a/b' },
+        router: {
+          gateway: { refs: [{ name: 'shared-gateway' }] },
+          route: { http: { refs: [{ name: 'shared-route' }] } },
+        },
+      }),
+    ).toBe('gateway (referenced), route (referenced)');
+  });
+
+  it('summarizes an ingress-only router instead of reporting the default', () => {
+    expect(
+      summarizeRouter({
+        model: { uri: 'hf://a/b' },
+        router: { ingress: {} },
+      }),
+    ).toBe('ingress (managed)');
+
+    expect(
+      summarizeRouter({
+        model: { uri: 'hf://a/b' },
+        router: { ingress: { refs: [{ name: 'shared-ingress' }] } },
+      }),
+    ).toBe('ingress (referenced)');
+  });
+});
+
+describe('summarizeScaling', () => {
+  it('returns an empty string when scaling is not configured', () => {
+    expect(summarizeScaling(minimalWithoutRouter.spec)).toBe('');
+  });
+
+  it('summarizes the replica bounds and the requested autoscaler', () => {
+    expect(
+      summarizeScaling({
+        model: { uri: 'hf://a/b' },
+        scaling: { minReplicas: 1, maxReplicas: 4, keda: {} },
+      }),
+    ).toBe('min=1, max=4, autoscaler=KEDA');
+  });
+
+  it('summarizes the workload variant autoscaler', () => {
+    expect(
+      summarizeScaling({
+        model: { uri: 'hf://a/b' },
+        scaling: { maxReplicas: 8, wva: {} },
+      }),
+    ).toBe('max=8, autoscaler=workload variant autoscaler');
   });
 });
 

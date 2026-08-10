@@ -26,10 +26,45 @@ export interface LLMInferenceServiceParallelism {
   expert?: boolean;
 }
 
+/*
+ * The router components share one convention in both API versions: an empty
+ * object requests a controller-managed resource, while a `refs` list points
+ * at existing resources the user brings and manages themselves.
+ */
+export interface LLMInferenceServiceObjectReference {
+  name?: string;
+  namespace?: string;
+  kind?: string;
+  group?: string;
+}
+
+export interface LLMInferenceServiceHTTPRoute {
+  refs?: LLMInferenceServiceObjectReference[];
+  spec?: K8sObject;
+}
+
+export interface LLMInferenceServiceGatewayRoutes {
+  http?: LLMInferenceServiceHTTPRoute;
+  group?: string;
+  weight?: number;
+}
+
+export interface LLMInferenceServiceRouterReferences {
+  refs?: LLMInferenceServiceObjectReference[];
+}
+
 export interface LLMInferenceServiceRouter {
-  gateway?: K8sObject;
-  route?: K8sObject;
+  gateway?: LLMInferenceServiceRouterReferences;
+  route?: LLMInferenceServiceGatewayRoutes;
+  ingress?: LLMInferenceServiceRouterReferences;
   scheduler?: K8sObject;
+}
+
+export interface LLMInferenceServiceScaling {
+  minReplicas?: number;
+  maxReplicas?: number;
+  wva?: K8sObject;
+  keda?: K8sObject;
 }
 
 export interface LLMInferenceServiceBaseReference {
@@ -45,7 +80,7 @@ export interface LLMInferenceServiceSpec {
   template?: K8sObject;
   worker?: K8sObject;
   prefill?: K8sObject;
-  scaling?: K8sObject;
+  scaling?: LLMInferenceServiceScaling;
   storageInitializer?: K8sObject;
   annotations?: { [key: string]: string };
   labels?: { [key: string]: string };

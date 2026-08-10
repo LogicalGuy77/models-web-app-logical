@@ -9,7 +9,13 @@
   </lib-title-actions-toolbar>
 
   <div class="details-page-outer">
-    <lib-loading-spinner *ngIf="!detailsLoaded"></lib-loading-spinner>
+    <lib-loading-spinner
+      *ngIf="!detailsLoaded && !loadingErrorMessage"
+    ></lib-loading-spinner>
+
+    <div *ngIf="!detailsLoaded && loadingErrorMessage" class="no-events" i18n>
+      {{ loadingErrorMessage }}
+    </div>
 
     <ng-container *ngIf="detailsLoaded">
       <div class="details-page-inner">
@@ -78,6 +84,9 @@
               *ngIf="llmInferenceService.spec?.replicas !== undefined"
             >
               {{ llmInferenceService.spec.replicas }}
+            </lib-details-list-item>
+            <lib-details-list-item key="Scaling" *ngIf="scaling">
+              {{ scaling }}
             </lib-details-list-item>
             <lib-details-list-item
               key="Base configurations"

@@ -18,6 +18,7 @@ import {
   getLLMInferenceServiceStatus,
   summarizeParallelism,
   summarizeRouter,
+  summarizeScaling,
 } from 'src/app/shared/llm-inference-service.utils';
 import { EventObject } from 'src/app/types/event';
 
@@ -30,6 +31,7 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
   public serviceName: string;
   public namespace: string;
   public detailsLoaded = false;
+  public loadingErrorMessage = '';
   public llmInferenceService: LLMInferenceServiceK8s;
   public status: Status;
   public events: EventObject[] = [];
@@ -37,6 +39,7 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
   public topology = '';
   public parallelism = '';
   public router = '';
+  public scaling = '';
   public conditions: Condition[] = [];
   public baseConfigurations: string[] = [];
   public appliedConfigurations: string[] = [];
@@ -105,6 +108,7 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
           this.llmInferenceService = llmInferenceService;
           this.parseFetchedObject(llmInferenceService);
           this.detailsLoaded = true;
+          this.loadingErrorMessage = '';
           this.cdr.detectChanges();
           return this.backend
             .getLLMInferenceServiceEvents(llmInferenceService)
@@ -121,9 +125,18 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
           this.events = events || [];
           this.cdr.detectChanges();
         },
-        error: err => {
-          console.error('Error loading the LLMInferenceService:', err);
-          this.detailsLoaded = true;
+        error: error => {
+          console.error('Error loading the LLMInferenceService:', error);
+          /*
+           * Keep `detailsLoaded` untouched: the template dereferences the
+           * fetched object once the details are marked as loaded, so marking
+           * a failed initial load as loaded would crash the page. Polling
+           * keeps retrying, so a transient failure recovers on a later tick,
+           * and data that already rendered stays visible.
+           */
+          if (!this.detailsLoaded) {
+            this.loadingErrorMessage = $localize`Failed to load the LLMInferenceService. Retrying automatically.`;
+          }
           this.cdr.detectChanges();
         },
       });
@@ -136,6 +149,7 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
     this.topology = deriveTopology(specification);
     this.parallelism = summarizeParallelism(specification);
     this.router = summarizeRouter(specification);
+    this.scaling = summarizeScaling(specification);
     this.conditions = llmInferenceService.status?.conditions || [];
     this.baseConfigurations = baseConfigurationNames(specification);
     this.appliedConfigurations = appliedConfigurationNames(llmInferenceService);

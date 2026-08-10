@@ -68,6 +68,9 @@ export function summarizeParallelism(spec?: LLMInferenceServiceSpec): string {
   if (parallelism.pipeline !== undefined) {
     parts.push(`pipeline=${parallelism.pipeline}`);
   }
+  if (parallelism.dataRPCPort !== undefined) {
+    parts.push(`data-rpc-port=${parallelism.dataRPCPort}`);
+  }
   if (parallelism.expert) {
     parts.push('expert');
   }
@@ -75,9 +78,16 @@ export function summarizeParallelism(spec?: LLMInferenceServiceSpec): string {
 }
 
 /**
- * Summarize which router components the specification requests, for
- * example "gateway, route, scheduler". Returns "default" when the
- * specification leaves routing entirely to the controller presets.
+ * Summarize the requested router mode, for example
+ * "gateway (managed), route (managed), scheduler". Returns "default" when
+ * the specification leaves routing entirely to the controller presets.
+ *
+ * Both API versions share the same convention: an empty component object
+ * requests a controller-managed resource, while a `refs` list points at
+ * existing resources the user manages themselves. The route component
+ * nests its references under `http.refs`. The scheduler has no managed
+ * versus referenced distinction; its presence enables the inference
+ * gateway extension.
  */
 export function summarizeRouter(spec?: LLMInferenceServiceSpec): string {
   const router = spec?.router;
@@ -85,17 +95,56 @@ export function summarizeRouter(spec?: LLMInferenceServiceSpec): string {
     return 'default';
   }
 
+  const describeComponent = (name: string, hasReferences: boolean) =>
+    hasReferences ? `${name} (referenced)` : `${name} (managed)`;
+
   const parts: string[] = [];
   if (router.gateway) {
-    parts.push('gateway');
+    parts.push(
+      describeComponent('gateway', (router.gateway.refs || []).length > 0),
+    );
   }
   if (router.route) {
-    parts.push('route');
+    parts.push(
+      describeComponent('route', (router.route.http?.refs || []).length > 0),
+    );
+  }
+  if (router.ingress) {
+    parts.push(
+      describeComponent('ingress', (router.ingress.refs || []).length > 0),
+    );
   }
   if (router.scheduler) {
     parts.push('scheduler');
   }
   return parts.length > 0 ? parts.join(', ') : 'default';
+}
+
+/**
+ * Summarize the scaling configuration as a short human-readable string,
+ * for example "min=1, max=4, autoscaler=KEDA". Returns an empty string
+ * when the specification does not configure scaling.
+ */
+export function summarizeScaling(spec?: LLMInferenceServiceSpec): string {
+  const scaling = spec?.scaling;
+  if (!scaling) {
+    return '';
+  }
+
+  const parts: string[] = [];
+  if (scaling.minReplicas !== undefined) {
+    parts.push(`min=${scaling.minReplicas}`);
+  }
+  if (scaling.maxReplicas !== undefined) {
+    parts.push(`max=${scaling.maxReplicas}`);
+  }
+  if (scaling.wva) {
+    parts.push('autoscaler=workload variant autoscaler');
+  }
+  if (scaling.keda) {
+    parts.push('autoscaler=KEDA');
+  }
+  return parts.join(', ');
 }
 
 /**
