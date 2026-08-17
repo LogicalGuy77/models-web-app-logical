@@ -7,8 +7,8 @@ import { V1ObjectMeta } from '@kubernetes/client-node';
  * The backend serves whichever API version the cluster supports (v1alpha2
  * preferred, v1alpha1 as fallback), so every field that may differ between
  * the versions is optional and the parsing utilities handle absence
- * explicitly. Fields the pages only test for presence, such as the workload
- * templates, are deliberately typed loosely.
+ * explicitly. Workload templates stay loosely typed because the pages
+ * only test those blocks for presence.
  */
 
 export interface LLMInferenceServiceModel {
@@ -67,6 +67,19 @@ export interface LLMInferenceServiceScaling {
   keda?: K8sObject;
 }
 
+/*
+ * Decode uses the top-level replicas, template, worker, parallelism, and
+ * scaling fields. Prefill is the same shape nested under spec.prefill, so
+ * a disaggregated service can request independent prefill settings.
+ */
+export interface LLMInferenceServiceWorkload {
+  replicas?: number;
+  template?: K8sObject;
+  worker?: K8sObject;
+  parallelism?: LLMInferenceServiceParallelism;
+  scaling?: LLMInferenceServiceScaling;
+}
+
 export interface LLMInferenceServiceBaseReference {
   name: string;
 }
@@ -79,7 +92,7 @@ export interface LLMInferenceServiceSpec {
   router?: LLMInferenceServiceRouter;
   template?: K8sObject;
   worker?: K8sObject;
-  prefill?: K8sObject;
+  prefill?: LLMInferenceServiceWorkload;
   scaling?: LLMInferenceServiceScaling;
   storageInitializer?: K8sObject;
   annotations?: { [key: string]: string };
@@ -95,14 +108,32 @@ export interface LLMInferenceServiceAppliedConfiguration extends K8sObject {
   name?: string;
 }
 
+export interface LLMInferenceServiceAddress {
+  name?: string;
+  url?: string;
+}
+
+export interface LLMInferenceServiceWorkloadReference {
+  apiGroup?: string;
+  kind?: string;
+  name?: string;
+}
+
+export interface LLMInferenceServiceWorkloads {
+  primary?: LLMInferenceServiceWorkloadReference;
+  prefill?: LLMInferenceServiceWorkloadReference;
+  service?: LLMInferenceServiceWorkloadReference;
+  scheduler?: LLMInferenceServiceWorkloadReference;
+}
+
 export interface LLMInferenceServiceStatus {
   conditions?: Condition[];
   url?: string;
-  address?: K8sObject;
-  addresses?: K8sObject[];
+  address?: LLMInferenceServiceAddress;
+  addresses?: LLMInferenceServiceAddress[];
   appliedConfigs?: LLMInferenceServiceAppliedConfiguration[];
   router?: K8sObject;
-  workloads?: K8sObject;
+  workloads?: LLMInferenceServiceWorkloads;
   observedGeneration?: number;
 }
 

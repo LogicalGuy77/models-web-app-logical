@@ -10,22 +10,6 @@ interface AceStatic {
 
 interface CypressWindowWithExtensions {
   ace: AceStatic;
-  EventSource: {
-    new (url: string): {
-      readyState: number;
-      onerror: ((e: Event) => void) | null;
-      onopen: ((e: Event) => void) | null;
-      onmessage: ((e: MessageEvent) => void) | null;
-      close(): void;
-      addEventListener(): void;
-      removeEventListener(): void;
-      dispatchEvent(): boolean;
-    };
-    CONNECTING: 0 | number;
-    OPEN: 1 | number;
-    CLOSED: 2 | number;
-  };
-  setTimeout: Window['setTimeout'];
 }
 
 describe('Models Web App - Model Edit Tests', () => {
@@ -162,55 +146,8 @@ describe('Models Web App - Model Edit Tests', () => {
       statusCode: 404,
     }).as('getGrafana');
 
-    cy.visit('/details/kubeflow-user/test-sklearn-model', {
-      onBeforeLoad(win) {
-        const initialData = JSON.stringify({
-          type: 'INITIAL',
-          object: testModel,
-        });
-
-        class FakeEventSource {
-          static CONNECTING = 0;
-          static OPEN = 1;
-          static CLOSED = 2;
-          readyState = 1;
-          onerror: ((e: Event) => void) | null = null;
-          onopen: ((e: Event) => void) | null = null;
-          onmessage: ((e: MessageEvent) => void) | null = null;
-
-          constructor(url: string) {
-            if (url.includes('inferenceservices/test-sklearn-model')) {
-              win.setTimeout(() => {
-                if (this.onmessage) {
-                  this.onmessage(
-                    new MessageEvent('message', {
-                      data: initialData,
-                    }),
-                  );
-                }
-              }, 10);
-            } else {
-              this.readyState = 2;
-              win.setTimeout(() => {
-                if (this.onerror) this.onerror(new Event('error'));
-              }, 50);
-            }
-          }
-
-          close() {
-            this.readyState = 2;
-          }
-          addEventListener() {}
-          removeEventListener() {}
-          dispatchEvent() {
-            return false;
-          }
-        }
-
-        (win as unknown as CypressWindowWithExtensions).EventSource =
-          FakeEventSource;
-      },
-    });
+    cy.mockSse({ inferenceServices: [testModel] });
+    cy.visit('/details/kubeflow-user/test-sklearn-model');
   });
 
   it('should load model details page and show edit button', () => {
@@ -477,26 +414,7 @@ describe('Models Web App - Model Edit Tests', () => {
       }
       return true;
     });
-    cy.intercept('GET', '/api/namespaces/kubeflow-user/inferenceservices', {
-      statusCode: 200,
-      body: { inferenceServices: [testModel] },
-    }).as('getInferenceServicesList');
-
-    cy.intercept('GET', '/api/sse/namespaces/kubeflow-user/inferenceservices', {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-      },
-      body: `data: ${JSON.stringify({
-        type: 'INITIAL',
-        items: [testModel],
-      })}\n\n`,
-    }).as('watchInferenceServicesList');
-
-    // Wait for config to be loaded first
     cy.wait('@getConfig');
-
     cy.wait('@getRevision');
     cy.wait('@getConfiguration');
     cy.wait('@getKnativeService');
@@ -508,5 +426,6 @@ describe('Models Web App - Model Edit Tests', () => {
     // Verify navigation back to index
     cy.url().should('not.include', '/details');
     cy.get('app-index').should('exist');
+    cy.get('lib-table').should('contain', 'test-sklearn-model');
   });
 });

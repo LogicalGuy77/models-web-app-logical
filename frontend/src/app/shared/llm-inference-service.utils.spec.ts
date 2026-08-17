@@ -8,8 +8,12 @@ import {
   summarizeParallelism,
   summarizeRouter,
   summarizeScaling,
+  uniqueServiceUrls,
 } from './llm-inference-service.utils';
-import { LLMInferenceServiceK8s } from '../types/kfserving/llm-inference-service';
+import {
+  LLMInferenceServiceK8s,
+  LLMInferenceServiceSpec,
+} from '../types/kfserving/llm-inference-service';
 
 /*
  * The first two objects mirror real resources observed on a live cluster:
@@ -51,41 +55,110 @@ const withBaseConfiguration: LLMInferenceServiceK8s = {
   status: { conditions: [] },
 };
 
+const fromSpec = (spec?: LLMInferenceServiceSpec): LLMInferenceServiceK8s => ({
+  spec,
+});
+
 describe('deriveTopology', () => {
   it('labels a specification with only a template as single node', () => {
-    expect(deriveTopology({ model: { uri: 'hf://a/b' }, template: {} })).toBe(
-      'Single node',
-    );
+    expect(
+      deriveTopology(fromSpec({ model: { uri: 'hf://a/b' }, template: {} })),
+    ).toBe('Single node');
   });
 
   it('labels a worker specification as multi-node', () => {
     expect(
-      deriveTopology({ model: { uri: 'hf://a/b' }, template: {}, worker: {} }),
+      deriveTopology(
+        fromSpec({ model: { uri: 'hf://a/b' }, template: {}, worker: {} }),
+      ),
     ).toBe('Multi-node');
   });
 
   it('labels a prefill specification as disaggregated', () => {
     expect(
-      deriveTopology({ model: { uri: 'hf://a/b' }, template: {}, prefill: {} }),
+      deriveTopology(
+        fromSpec({ model: { uri: 'hf://a/b' }, template: {}, prefill: {} }),
+      ),
     ).toBe('Disaggregated');
   });
 
   it('labels worker plus prefill as disaggregated multi-node', () => {
     expect(
-      deriveTopology({
-        model: { uri: 'hf://a/b' },
-        template: {},
-        worker: {},
-        prefill: {},
-      }),
+      deriveTopology(
+        fromSpec({
+          model: { uri: 'hf://a/b' },
+          template: {},
+          worker: {},
+          prefill: {},
+        }),
+      ),
+    ).toBe('Disaggregated multi-node');
+  });
+
+  it('labels a prefill workload with its own worker as disaggregated multi-node', () => {
+    expect(
+      deriveTopology(
+        fromSpec({
+          model: { uri: 'hf://a/b' },
+          template: {},
+          prefill: { worker: {} },
+        }),
+      ),
     ).toBe('Disaggregated multi-node');
   });
 
   it('labels an empty workload specification as single node, because absence means the controller default', () => {
-    expect(deriveTopology(minimalWithoutRouter.spec)).toBe('Single node');
+    expect(deriveTopology(minimalWithoutRouter)).toBe('Single node');
   });
 
-  it('tolerates a missing specification', () => {
+  it('does not guess single-node when the specification only references a base configuration', () => {
+    expect(deriveTopology(withBaseConfiguration)).toBe('From configuration');
+  });
+
+  it('uses observed workloads when the local specification delegates topology', () => {
+    expect(
+      deriveTopology({
+        spec: {
+          model: { uri: 'hf://a/b' },
+          baseRefs: [{ name: 'sample-disaggregated-configuration' }],
+        },
+        status: {
+          workloads: {
+            primary: {
+              apiGroup: 'apps',
+              kind: 'Deployment',
+              name: 'decode',
+            },
+            prefill: {
+              apiGroup: 'apps',
+              kind: 'Deployment',
+              name: 'prefill',
+            },
+          },
+        },
+      }),
+    ).toBe('Disaggregated');
+
+    expect(
+      deriveTopology({
+        spec: {
+          model: { uri: 'hf://a/b' },
+          baseRefs: [{ name: 'sample-multi-node-configuration' }],
+        },
+        status: {
+          workloads: {
+            primary: {
+              apiGroup: 'leaderworkerset.x-k8s.io',
+              kind: 'LeaderWorkerSet',
+              name: 'decode',
+            },
+          },
+        },
+      }),
+    ).toBe('Multi-node');
+  });
+
+  it('tolerates a missing object', () => {
     expect(deriveTopology(undefined)).toBe('Single node');
   });
 });
@@ -120,6 +193,14 @@ describe('summarizeParallelism', () => {
         parallelism: { data: 4, dataRPCPort: 5555 },
       }),
     ).toBe('data=4, data-rpc-port=5555');
+  });
+
+  it('summarizes nested prefill parallelism independently of decode', () => {
+    expect(
+      summarizeParallelism({
+        parallelism: { tensor: 4 },
+      }),
+    ).toBe('tensor=4');
   });
 });
 
@@ -193,6 +274,37 @@ describe('summarizeScaling', () => {
         scaling: { maxReplicas: 8, wva: {} },
       }),
     ).toBe('max=8, autoscaler=workload variant autoscaler');
+  });
+
+  it('summarizes nested prefill scaling independently of decode', () => {
+    expect(
+      summarizeScaling({
+        scaling: { minReplicas: 2, maxReplicas: 6, keda: {} },
+      }),
+    ).toBe('min=2, max=6, autoscaler=KEDA');
+  });
+});
+
+describe('uniqueServiceUrls', () => {
+  it('returns an empty list when no addresses are reported', () => {
+    expect(uniqueServiceUrls(undefined)).toEqual([]);
+    expect(uniqueServiceUrls({})).toEqual([]);
+  });
+
+  it('keeps the primary URL first and drops duplicates from addresses', () => {
+    expect(
+      uniqueServiceUrls({
+        url: 'http://llm.example.com',
+        address: { url: 'http://llm.example.com' },
+        addresses: [
+          { name: 'public', url: 'http://llm.example.com' },
+          { name: 'cluster', url: 'http://llm.cluster.local' },
+        ],
+      }),
+    ).toEqual([
+      { url: 'http://llm.example.com' },
+      { name: 'cluster', url: 'http://llm.cluster.local' },
+    ]);
   });
 });
 
@@ -270,6 +382,25 @@ describe('getLLMInferenceServiceStatus', () => {
     expect(status.phase).toBe(STATUS_TYPE.WARNING);
     expect(status.message).toBe(
       'MainWorkloadNotReady: waiting for the deployment to become available',
+    );
+  });
+
+  it('omits an undefined reason when a failed condition only has a message', () => {
+    const status = getLLMInferenceServiceStatus({
+      metadata: { name: 'message-only' },
+      status: {
+        conditions: [
+          {
+            type: 'WorkloadsReady',
+            status: 'False',
+            message: 'waiting for the deployment to become available',
+          },
+        ],
+      },
+    });
+    expect(status.phase).toBe(STATUS_TYPE.WARNING);
+    expect(status.message).toBe(
+      'waiting for the deployment to become available',
     );
   });
 

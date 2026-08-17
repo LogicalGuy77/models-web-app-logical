@@ -1,7 +1,11 @@
 import { Condition, Status, STATUS_TYPE } from 'kubeflow';
 import {
+  LLMInferenceServiceAddress,
   LLMInferenceServiceK8s,
   LLMInferenceServiceSpec,
+  LLMInferenceServiceStatus,
+  LLMInferenceServiceWorkload,
+  LLMInferenceServiceWorkloads,
 } from '../types/kfserving/llm-inference-service';
 
 /*
@@ -16,21 +20,55 @@ export type LLMInferenceServiceTopology =
   | 'Single node'
   | 'Multi-node'
   | 'Disaggregated'
-  | 'Disaggregated multi-node';
+  | 'Disaggregated multi-node'
+  | 'From configuration';
+
+export interface LLMInferenceServiceEndpoint {
+  url: string;
+  name?: string;
+}
 
 /**
- * Derive the requested serving topology from the workload blocks.
+ * Derive the serving topology from the object, preferring an explicit
+ * local workload, then the controller's observed workloads, and only
+ * then the controller default.
  *
- * The `worker` block requests multi-node orchestration and the `prefill`
- * block requests disaggregated prefill and decode workloads. An absent
- * block simply means the controller default, so a specification without
- * any workload block is a single-node deployment.
+ * An omitted local `worker`/`prefill` block is not enough to call the
+ * service single-node: `baseRefs` can inject those fields during
+ * configuration merge. Until workloads are observed, a referenced
+ * configuration is reported as inherited rather than guessed.
  */
 export function deriveTopology(
-  spec?: LLMInferenceServiceSpec,
+  llmInferenceService?: LLMInferenceServiceK8s,
 ): LLMInferenceServiceTopology {
-  const hasWorker = !!spec?.worker;
-  const hasPrefill = !!spec?.prefill;
+  const fromSpec = topologyFromSpec(llmInferenceService?.spec);
+  if (fromSpec) {
+    return fromSpec;
+  }
+
+  const fromWorkloads = topologyFromWorkloads(
+    llmInferenceService?.status?.workloads,
+  );
+  if (fromWorkloads) {
+    return fromWorkloads;
+  }
+
+  if ((llmInferenceService?.spec?.baseRefs || []).length > 0) {
+    return 'From configuration';
+  }
+
+  return 'Single node';
+}
+
+function topologyFromSpec(
+  spec?: LLMInferenceServiceSpec,
+): LLMInferenceServiceTopology | '' {
+  if (!spec) {
+    return '';
+  }
+
+  const hasPrefill = !!spec.prefill;
+  const hasWorker = !!spec.worker || !!spec.prefill?.worker;
 
   if (hasWorker && hasPrefill) {
     return 'Disaggregated multi-node';
@@ -41,16 +79,46 @@ export function deriveTopology(
   if (hasPrefill) {
     return 'Disaggregated';
   }
-  return 'Single node';
+  return '';
+}
+
+function topologyFromWorkloads(
+  workloads?: LLMInferenceServiceWorkloads,
+): LLMInferenceServiceTopology | '' {
+  if (!workloads) {
+    return '';
+  }
+
+  const hasPrefill = !!workloads.prefill;
+  const hasWorker = workloads.primary?.kind === 'LeaderWorkerSet';
+
+  if (hasWorker && hasPrefill) {
+    return 'Disaggregated multi-node';
+  }
+  if (hasWorker) {
+    return 'Multi-node';
+  }
+  if (hasPrefill) {
+    return 'Disaggregated';
+  }
+  if (workloads.primary) {
+    return 'Single node';
+  }
+  return '';
 }
 
 /**
  * Summarize the parallelism configuration as a short human-readable string,
  * for example "tensor=2, data=4". Returns an empty string when the
  * specification does not configure parallelism.
+ *
+ * Accepts either the top-level specification (decode) or a nested
+ * prefill workload, because both carry the same parallelism fields.
  */
-export function summarizeParallelism(spec?: LLMInferenceServiceSpec): string {
-  const parallelism = spec?.parallelism;
+export function summarizeParallelism(
+  source?: LLMInferenceServiceSpec | LLMInferenceServiceWorkload,
+): string {
+  const parallelism = source?.parallelism;
   if (!parallelism) {
     return '';
   }
@@ -124,9 +192,14 @@ export function summarizeRouter(spec?: LLMInferenceServiceSpec): string {
  * Summarize the scaling configuration as a short human-readable string,
  * for example "min=1, max=4, autoscaler=KEDA". Returns an empty string
  * when the specification does not configure scaling.
+ *
+ * Accepts either the top-level specification (decode) or a nested
+ * prefill workload, because both carry the same scaling fields.
  */
-export function summarizeScaling(spec?: LLMInferenceServiceSpec): string {
-  const scaling = spec?.scaling;
+export function summarizeScaling(
+  source?: LLMInferenceServiceSpec | LLMInferenceServiceWorkload,
+): string {
+  const scaling = source?.scaling;
   if (!scaling) {
     return '';
   }
@@ -145,6 +218,36 @@ export function summarizeScaling(spec?: LLMInferenceServiceSpec): string {
     parts.push('autoscaler=KEDA');
   }
   return parts.join(', ');
+}
+
+/**
+ * Collect the unique service URLs the object reports, primary `url`
+ * first, then `address` and `addresses`. Duplicates are dropped so the
+ * details page can render every reachable endpoint without repeating
+ * the primary URL.
+ */
+export function uniqueServiceUrls(
+  status?: LLMInferenceServiceStatus,
+): LLMInferenceServiceEndpoint[] {
+  const seen = new Set<string>();
+  const endpoints: LLMInferenceServiceEndpoint[] = [];
+
+  const add = (address?: LLMInferenceServiceAddress | string) => {
+    const url = typeof address === 'string' ? address : address?.url;
+    if (!url || seen.has(url)) {
+      return;
+    }
+    seen.add(url);
+    const name = typeof address === 'string' ? undefined : address?.name;
+    endpoints.push(name ? { url, name } : { url });
+  };
+
+  add(status?.url);
+  add(status?.address);
+  for (const address of status?.addresses || []) {
+    add(address);
+  }
+  return endpoints;
 }
 
 /**
@@ -236,7 +339,9 @@ export function getLLMInferenceServiceStatus(
     return {
       phase: STATUS_TYPE.WARNING,
       state: '',
-      message: `${failed.reason}: ${failed.message}`,
+      message: failed.reason
+        ? `${failed.reason}: ${failed.message}`
+        : failed.message,
     };
   }
 

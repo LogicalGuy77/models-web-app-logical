@@ -18,12 +18,7 @@ describe('Models Web App - Index Page Tests', () => {
       },
     }).as('getNamespaces');
 
-    // Default empty response for inference services
-    cy.intercept('GET', '/api/namespaces/*/inferenceservices', {
-      statusCode: 200,
-      body: [],
-    }).as('getInferenceServicesDefault');
-
+    cy.mockSse({ inferenceServices: [] });
     cy.visit('/');
   });
 
@@ -79,11 +74,8 @@ describe('Models Web App - Index Page Tests', () => {
   });
 
   it('should display empty state when no endpoints exist', () => {
-    // With the default empty intercept, verify empty state
     cy.wait('@getNamespaces');
-    cy.wait('@getInferenceServicesDefault');
 
-    // Table should exist and show empty state
     cy.get('lib-table', { timeout: 2000 }).should('exist');
     cy.get('lib-table').within(() => {
       cy.contains('No rows to display').should('be.visible');

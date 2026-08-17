@@ -125,7 +125,7 @@ describe('Models Web App - LLMInferenceService Tests', () => {
 
     cy.get('lib-table', { timeout: 10000 }).should('exist');
     cy.contains(testServiceName, { timeout: 10000 }).should('be.visible');
-    cy.contains('Single node', { timeout: 10000 }).should('be.visible');
+    cy.contains('From configuration', { timeout: 10000 }).should('be.visible');
   });
 
   it('navigates to the details page when a name is clicked', () => {
@@ -188,7 +188,7 @@ describe('Models Web App - LLMInferenceService Tests', () => {
     cy.contains(testServiceName, { timeout: 10000 }).should('be.visible');
 
     // The overview tab renders the effective topology, not just raw YAML.
-    cy.contains('Single node', { timeout: 10000 }).should('be.visible');
+    cy.contains('From configuration', { timeout: 10000 }).should('be.visible');
     cy.contains('sample-single-node-configuration', { timeout: 10000 }).should(
       'be.visible',
     );

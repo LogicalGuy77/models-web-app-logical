@@ -22,8 +22,19 @@ const mockLLMInferenceService: any = {
     replicas: 2,
     scaling: { minReplicas: 1, maxReplicas: 4, keda: {} },
     router: { ingress: {} },
+    parallelism: { tensor: 2 },
+    prefill: {
+      replicas: 3,
+      worker: {},
+      parallelism: { tensor: 4 },
+      scaling: { minReplicas: 1, maxReplicas: 6, keda: {} },
+    },
   },
   status: {
+    url: 'http://facebook-opt-125m.example.com',
+    addresses: [
+      { name: 'cluster', url: 'http://facebook-opt-125m.cluster.local' },
+    ],
     conditions: [
       {
         type: 'Ready',
@@ -111,9 +122,20 @@ describe('LLMDetailsComponent (Jest)', () => {
     expect(component.detailsLoaded).toBe(true);
     expect(component.loadingErrorMessage).toBe('');
     expect(component.status.phase).toBe(STATUS_TYPE.READY);
-    expect(component.topology).toBe('Single node');
+    expect(component.topology).toBe('Disaggregated multi-node');
     expect(component.router).toBe('ingress (managed)');
     expect(component.scaling).toBe('min=1, max=4, autoscaler=KEDA');
+    expect(component.parallelism).toBe('tensor=2');
+    expect(component.prefillReplicas).toBe(3);
+    expect(component.prefillParallelism).toBe('tensor=4');
+    expect(component.prefillScaling).toBe('min=1, max=6, autoscaler=KEDA');
+    expect(component.serviceUrls).toEqual([
+      { url: 'http://facebook-opt-125m.example.com' },
+      {
+        name: 'cluster',
+        url: 'http://facebook-opt-125m.cluster.local',
+      },
+    ]);
     expect(component.yaml).toContain('facebook-opt-125m');
     expect(component.events).toEqual([mockEvent]);
   });
@@ -124,6 +146,10 @@ describe('LLMDetailsComponent (Jest)', () => {
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('facebook-opt-125m');
     expect(text).toContain('min=1, max=4, autoscaler=KEDA');
+    expect(text).toContain('http://facebook-opt-125m.example.com');
+    expect(text).toContain('http://facebook-opt-125m.cluster.local');
+    expect(text).toContain('tensor=4');
+    expect(text).toContain('min=1, max=6, autoscaler=KEDA');
   });
 
   it('should keep a recoverable state when the initial load fails', () => {
@@ -193,6 +219,36 @@ describe('LLMDetailsComponent (Jest)', () => {
     );
   });
 
+  it('should reset the view and ignore a stale response after the route changes', () => {
+    const firstResponse = new Subject<any>();
+    const secondService = {
+      ...mockLLMInferenceService,
+      metadata: {
+        ...mockLLMInferenceService.metadata,
+        name: 'another-service',
+      },
+    };
+
+    mockBackendService.getLLMInferenceService.mockReturnValue(
+      firstResponse.asObservable(),
+    );
+    emitRouteParameters();
+    expect(component.detailsLoaded).toBe(false);
+
+    mockBackendService.getLLMInferenceService.mockReturnValue(
+      of(secondService),
+    );
+    emitRouteParameters('kubeflow-user', 'another-service');
+    expect(component.detailsLoaded).toBe(true);
+    expect(component.llmInferenceService.metadata.name).toBe('another-service');
+
+    firstResponse.next(mockLLMInferenceService);
+    firstResponse.complete();
+    fixture.detectChanges();
+
+    expect(component.llmInferenceService.metadata.name).toBe('another-service');
+  });
+
   it('should navigate back to the list page', () => {
     component.navigateBack();
     expect(mockRouter.navigate).toHaveBeenCalledWith([
@@ -201,6 +257,10 @@ describe('LLMDetailsComponent (Jest)', () => {
   });
 
   it('should unsubscribe on destroy', () => {
+    const requestUnsubscribe = jest.spyOn(
+      component['requestSubscription'],
+      'unsubscribe',
+    );
     const pollingUnsubscribe = jest.spyOn(
       component['pollingSubscription'],
       'unsubscribe',
@@ -212,6 +272,7 @@ describe('LLMDetailsComponent (Jest)', () => {
 
     component.ngOnDestroy();
 
+    expect(requestUnsubscribe).toHaveBeenCalled();
     expect(pollingUnsubscribe).toHaveBeenCalled();
     expect(parametersUnsubscribe).toHaveBeenCalled();
   });

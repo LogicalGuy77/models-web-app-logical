@@ -49,16 +49,25 @@
                 [date]="llmInferenceService.metadata?.creationTimestamp"
               ></lib-date-time>
             </lib-details-list-item>
-            <lib-details-list-item
-              key="URL"
-              *ngIf="llmInferenceService.status?.url"
-            >
+            <lib-details-list-item key="URL" *ngIf="serviceUrls.length > 0">
               <a
-                [href]="llmInferenceService.status.url"
+                [href]="serviceUrls[0].url"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                {{ llmInferenceService.status.url }}
+                {{ serviceUrls[0].url }}
+              </a>
+            </lib-details-list-item>
+            <lib-details-list-item
+              *ngFor="let endpoint of additionalServiceUrls"
+              [key]="endpoint.name || 'Address'"
+            >
+              <a
+                [href]="endpoint.url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ endpoint.url }}
               </a>
             </lib-details-list-item>
             <lib-details-list-item
@@ -87,6 +96,21 @@
             </lib-details-list-item>
             <lib-details-list-item key="Scaling" *ngIf="scaling">
               {{ scaling }}
+            </lib-details-list-item>
+            <lib-details-list-item
+              key="Prefill replicas"
+              *ngIf="prefillReplicas !== undefined"
+            >
+              {{ prefillReplicas }}
+            </lib-details-list-item>
+            <lib-details-list-item
+              key="Prefill parallelism"
+              *ngIf="prefillParallelism"
+            >
+              {{ prefillParallelism }}
+            </lib-details-list-item>
+            <lib-details-list-item key="Prefill scaling" *ngIf="prefillScaling">
+              {{ prefillScaling }}
             </lib-details-list-item>
             <lib-details-list-item
               key="Base configurations"

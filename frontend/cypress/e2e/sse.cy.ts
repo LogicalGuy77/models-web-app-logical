@@ -36,6 +36,20 @@ describe('Models Web App - Server-Sent Events (SSE) Tests', () => {
       },
     },
   };
+
+  const secondInferenceService = {
+    ...mockInferenceService,
+    metadata: {
+      ...mockInferenceService.metadata,
+      name: 'second-model',
+      uid: 'test-uid-456',
+    },
+    status: {
+      ...mockInferenceService.status,
+      url: 'http://second-model.kubeflow-user.example.com',
+    },
+  };
+
   beforeEach(() => {
     cy.on('uncaught:exception', err => {
       if (err.message.includes('403') || err.message.includes('Forbidden')) {
@@ -43,249 +57,108 @@ describe('Models Web App - Server-Sent Events (SSE) Tests', () => {
       }
       return true;
     });
+
+    cy.intercept('GET', '/api/config', {
+      statusCode: 200,
+      body: {
+        grafanaPrefix: '/grafana',
+        grafanaCpuMemoryDb: 'db/knative-serving-revision-cpu-and-memory-usage',
+        grafanaHttpRequestsDb: 'db/knative-serving-revision-http-requests',
+      },
+    }).as('config');
+
+    cy.intercept('GET', '/api/config/namespaces', {
+      statusCode: 200,
+      body: { namespaces: ['kubeflow-user'] },
+    }).as('namespaces');
   });
 
-  describe('SSE Endpoints Availability', () => {
-    it('should load index page and have SSE endpoints available', () => {
-      cy.intercept('GET', '/api/config', {
-        statusCode: 200,
-        body: {
-          grafanaPrefix: '/grafana',
-          grafanaCpuMemoryDb:
-            'db/knative-serving-revision-cpu-and-memory-usage',
-          grafanaHttpRequestsDb: 'db/knative-serving-revision-http-requests',
-        },
-      }).as('config');
+  it('should load the index page over SSE', () => {
+    cy.mockSse({ inferenceServices: [mockInferenceService] });
+    cy.visit('/');
+    cy.wait('@config');
+    cy.wait('@namespaces');
 
-      cy.intercept('GET', '/api/config/namespaces', {
-        statusCode: 200,
-        body: { namespaces: ['kubeflow-user'] },
-      });
-
-      cy.intercept('GET', '/api/namespaces/*/inferenceservices', {
-        statusCode: 200,
-        body: { inferenceServices: [mockInferenceService] },
-      });
-
-      cy.visit('/');
-      cy.wait('@config');
-      cy.contains('Endpoints').should('be.visible');
-    });
+    cy.contains('Endpoints').should('be.visible');
+    cy.get('lib-table').should('contain', 'test-model');
   });
 
-  describe('Inference Services List - Polling Fallback', () => {
-    it('should display list of InferenceServices using polling', () => {
-      cy.intercept('GET', '/api/config', {
-        statusCode: 200,
-        body: {
-          grafanaPrefix: '/grafana',
-        },
-      }).as('config');
+  it('should display InferenceServices from the SSE INITIAL snapshot', () => {
+    cy.mockSse({ inferenceServices: [mockInferenceService] });
+    cy.visit('/');
+    cy.wait('@config');
+    cy.wait('@namespaces');
 
-      cy.intercept('GET', '/api/config/namespaces', {
-        statusCode: 200,
-        body: { namespaces: ['kubeflow-user'] },
-      }).as('namespaces');
+    cy.get('lib-table').should('be.visible');
+    cy.get('lib-table').should('contain', 'test-model');
+  });
 
-      cy.intercept('GET', '/api/namespaces/*/inferenceservices', {
-        statusCode: 200,
-        body: { inferenceServices: [mockInferenceService] },
-      }).as('getServices');
-
-      cy.visit('/');
-      cy.wait('@config');
-      cy.wait('@namespaces');
-      cy.wait('@getServices', { timeout: 5000 });
-
-      cy.wait(500);
-
-      cy.get('lib-table').should('be.visible');
+  it('should display multiple InferenceServices from SSE', () => {
+    cy.mockSse({
+      inferenceServices: [mockInferenceService, secondInferenceService],
     });
+    cy.visit('/');
+    cy.wait('@config');
+    cy.wait('@namespaces');
 
-    it('should handle multiple InferenceServices', () => {
-      const service2 = {
-        ...mockInferenceService,
-        metadata: {
-          ...mockInferenceService.metadata,
-          name: 'second-model',
-        },
-      };
+    cy.get('lib-table').should('contain', 'test-model');
+    cy.get('lib-table').should('contain', 'second-model');
+  });
 
-      cy.intercept('GET', '/api/config', {
-        statusCode: 200,
-        body: { grafanaPrefix: '/grafana' },
-      }).as('config');
+  it('should display empty state when SSE returns no services', () => {
+    cy.mockSse({ inferenceServices: [] });
+    cy.visit('/');
+    cy.wait('@config');
+    cy.wait('@namespaces');
 
-      cy.intercept('GET', '/api/config/namespaces', {
-        statusCode: 200,
-        body: { namespaces: ['kubeflow-user'] },
-      }).as('namespaces');
-
-      cy.intercept('GET', '/api/namespaces/*/inferenceservices', {
-        statusCode: 200,
-        body: { inferenceServices: [mockInferenceService, service2] },
-      }).as('services');
-
-      cy.visit('/');
-      cy.wait('@config');
-      cy.wait('@namespaces');
-      cy.wait('@services', { timeout: 5000 });
-
-      cy.wait(500);
-
-      // Verify table shows records
-      cy.get('lib-table').should('be.visible');
-    });
-
-    it('should display empty state when no services exist', () => {
-      cy.intercept('GET', '/api/config', {
-        statusCode: 200,
-        body: { sseEnabled: true },
-      });
-
-      cy.intercept('GET', '/api/config/namespaces', {
-        statusCode: 200,
-        body: { namespaces: ['kubeflow-user'] },
-      });
-
-      cy.intercept('GET', '/api/namespaces/*/inferenceservices', {
-        statusCode: 200,
-        body: { inferenceServices: [] },
-      });
-
-      cy.visit('/');
-
-      cy.get('lib-table').within(() => {
-        cy.contains('No rows to display').should('be.visible');
-      });
+    cy.get('lib-table').within(() => {
+      cy.contains('No rows to display').should('be.visible');
     });
   });
 
-  describe('Fallback from SSE to Polling', () => {
-    it('should fallback to polling when SSE endpoint fails', () => {
-      // SSE returns error
-      cy.intercept('GET', '/api/sse/**', {
-        statusCode: 503,
-        body: { error: 'SSE unavailable' },
-      });
+  it('should append a row when SSE emits ADDED', () => {
+    cy.mockSse({ inferenceServices: [mockInferenceService] });
+    cy.visit('/');
+    cy.wait('@config');
+    cy.wait('@namespaces');
+    cy.get('lib-table').should('contain', 'test-model');
 
-      cy.intercept('GET', '/api/config', {
-        statusCode: 200,
-        body: {
-          grafanaPrefix: '/grafana',
-        },
-      }).as('config');
+    cy.emitSse({ type: 'ADDED', object: secondInferenceService });
 
-      cy.intercept('GET', '/api/config/namespaces', {
-        statusCode: 200,
-        body: { namespaces: ['kubeflow-user'] },
-      }).as('namespaces');
+    cy.get('lib-table').should('contain', 'second-model');
+  });
 
-      // Polling API works
-      cy.intercept('GET', '/api/namespaces/*/inferenceservices', {
-        statusCode: 200,
-        body: { inferenceServices: [mockInferenceService] },
-      }).as('fallbackPolling');
+  it('should remove a row when SSE emits DELETED', () => {
+    cy.mockSse({ inferenceServices: [mockInferenceService] });
+    cy.visit('/');
+    cy.wait('@config');
+    cy.wait('@namespaces');
+    cy.get('lib-table').should('contain', 'test-model');
 
-      cy.visit('/');
+    cy.emitSse({ type: 'DELETED', object: mockInferenceService });
 
-      cy.wait('@config');
-      cy.wait('@namespaces');
-      cy.wait('@fallbackPolling');
-      cy.wait(500);
-
-      // Data should still load via polling fallback
-      cy.get('lib-table').should('be.visible');
-    });
-
-    it('should handle SSE network errors gracefully', () => {
-      // SSE endpoint times out or is unreachable
-      cy.intercept(
-        'GET',
-        '/api/sse/namespaces/kubeflow-user/inferenceservices',
-        {
-          statusCode: 0,
-          forceNetworkError: true,
-        },
-      );
-
-      cy.intercept('GET', '/api/config', {
-        statusCode: 200,
-        body: { grafanaPrefix: '/grafana' },
-      }).as('config');
-
-      cy.intercept('GET', '/api/config/namespaces', {
-        statusCode: 200,
-        body: { namespaces: ['kubeflow-user'] },
-      }).as('namespaces');
-
-      cy.intercept('GET', '/api/namespaces/*/inferenceservices', {
-        statusCode: 200,
-        body: { inferenceServices: [mockInferenceService] },
-      }).as('polling');
-
-      cy.visit('/');
-
-      cy.wait('@config');
-      cy.wait('@namespaces');
-      cy.wait('@polling');
-      cy.wait(500);
-
-      cy.get('lib-table').should('be.visible');
+    cy.get('lib-table').within(() => {
+      cy.contains('No rows to display').should('be.visible');
     });
   });
 
-  describe('Service Details Page with SSE', () => {
-    it('should provide service details API for individual services', () => {
-      cy.intercept('GET', '/api/config', {
-        statusCode: 200,
-        body: { grafanaPrefix: '/grafana' },
-      }).as('config');
+  it('should watch the selected namespace over SSE', () => {
+    cy.mockSse({ inferenceServices: [mockInferenceService] });
+    cy.visit('/');
+    cy.wait('@config');
+    cy.wait('@namespaces');
+    cy.get('lib-table').should('contain', 'test-model');
 
-      cy.intercept('GET', '/api/config/namespaces', {
-        statusCode: 200,
-        body: { namespaces: ['kubeflow-user'] },
-      }).as('namespaces');
-
-      cy.intercept('GET', '/api/namespaces/kubeflow-user/inferenceservices', {
-        statusCode: 200,
-        body: { inferenceServices: [mockInferenceService] },
-      }).as('servicesList');
-
-      cy.visit('/');
-
-      cy.wait('@config');
-      cy.wait('@servicesList');
-      cy.wait(500);
-
-      cy.contains('Endpoints').should('be.visible');
-    });
-  });
-
-  describe('Real-time SSE Capability', () => {
-    it('should support real-time updates via SSE when available', () => {
-      cy.intercept('GET', '/api/config', {
-        statusCode: 200,
-        body: {
-          grafanaPrefix: '/grafana',
-        },
-      }).as('getConfig');
-
-      cy.intercept('GET', '/api/config/namespaces', {
-        statusCode: 200,
-        body: { namespaces: ['kubeflow-user'] },
-      });
-
-      cy.intercept('GET', '/api/namespaces/kubeflow-user/inferenceservices', {
-        statusCode: 200,
-        body: { inferenceServices: [mockInferenceService] },
-      });
-
-      cy.visit('/');
-
-      cy.wait('@getConfig');
-
-      cy.contains('Endpoints').should('be.visible');
+    cy.window().should(win => {
+      const sources = (
+        win as Window & { __cypressSseSources?: Array<{ url: string }> }
+      ).__cypressSseSources;
+      expect(
+        sources?.some(source =>
+          /\/namespaces\/kubeflow-user\/inferenceservices\/?$/.test(source.url),
+        ),
+        'SSE list watch for kubeflow-user',
+      ).to.equal(true);
     });
   });
 });

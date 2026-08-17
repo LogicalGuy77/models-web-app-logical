@@ -115,17 +115,17 @@ export class LLMInferenceServiceComponent implements OnInit, OnDestroy {
       });
   }
 
-  public reactToAction(a: ActionEvent) {
-    const llmInferenceService = a.data as LLMInferenceServiceIR;
+  public reactToAction(actionEvent: ActionEvent) {
+    const llmInferenceService = actionEvent.data as LLMInferenceServiceIR;
 
-    if (a.action === 'name:link') {
+    if (actionEvent.action === 'name:link') {
       /*
        * Do not allow the user to navigate to the details page of an
        * object that is being deleted.
        */
       if (llmInferenceService.ui?.status?.phase === STATUS_TYPE.TERMINATING) {
-        a.event?.stopPropagation();
-        a.event?.preventDefault();
+        actionEvent.event?.stopPropagation();
+        actionEvent.event?.preventDefault();
         const snackConfiguration: SnackBarConfig = {
           data: {
             msg: $localize`LLMInferenceService is being deleted, cannot show details.`,
@@ -156,7 +156,7 @@ export class LLMInferenceServiceComponent implements OnInit, OnDestroy {
 
     llmInferenceService.ui = {
       status: getLLMInferenceServiceStatus(llmInferenceService),
-      topology: deriveTopology(specification),
+      topology: deriveTopology(llmInferenceService),
       parallelism: summarizeParallelism(specification),
       router: summarizeRouter(specification),
       modelName: specification?.model?.name || specification?.model?.uri || '',

@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { Subscription, of } from 'rxjs';
-import { switchMap, catchError } from 'rxjs/operators';
+import { EMPTY, Subscription, of } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { dump } from 'js-yaml';
 import {
@@ -12,6 +12,7 @@ import {
 import { MWABackendService } from 'src/app/services/backend.service';
 import { LLMInferenceServiceK8s } from 'src/app/types/kfserving/llm-inference-service';
 import {
+  LLMInferenceServiceEndpoint,
   appliedConfigurationNames,
   baseConfigurationNames,
   deriveTopology,
@@ -19,6 +20,7 @@ import {
   summarizeParallelism,
   summarizeRouter,
   summarizeScaling,
+  uniqueServiceUrls,
 } from 'src/app/shared/llm-inference-service.utils';
 import { EventObject } from 'src/app/types/event';
 
@@ -40,6 +42,11 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
   public parallelism = '';
   public router = '';
   public scaling = '';
+  public prefillReplicas: number | undefined;
+  public prefillParallelism = '';
+  public prefillScaling = '';
+  public serviceUrls: LLMInferenceServiceEndpoint[] = [];
+  public additionalServiceUrls: LLMInferenceServiceEndpoint[] = [];
   public conditions: Condition[] = [];
   public baseConfigurations: string[] = [];
   public appliedConfigurations: string[] = [];
@@ -57,6 +64,7 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
   });
   private pollingSubscription = new Subscription();
   private paramsSubscription = new Subscription();
+  private requestSubscription = new Subscription();
 
   constructor(
     private route: ActivatedRoute,
@@ -72,14 +80,15 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
 
       this.serviceName = params.name;
       this.namespace = params.namespace;
-
-      // Initial load before starting polling
-      this.getBackendObjects();
+      this.resetView();
 
       // Unsubscribe from previous polling before starting a new one
       if (this.pollingSubscription) {
         this.pollingSubscription.unsubscribe();
       }
+
+      // Initial load before starting polling
+      this.getBackendObjects();
 
       this.pollingSubscription = this.poller.start().subscribe(() => {
         this.getBackendObjects();
@@ -88,6 +97,9 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.requestSubscription) {
+      this.requestSubscription.unsubscribe();
+    }
     if (this.pollingSubscription) {
       this.pollingSubscription.unsubscribe();
     }
@@ -100,8 +112,33 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
     this.angularRouter.navigate(['/llm-inference-services']);
   }
 
+  private resetView() {
+    this.detailsLoaded = false;
+    this.loadingErrorMessage = '';
+    this.llmInferenceService = undefined;
+    this.events = [];
+    this.topology = '';
+    this.parallelism = '';
+    this.router = '';
+    this.scaling = '';
+    this.prefillReplicas = undefined;
+    this.prefillParallelism = '';
+    this.prefillScaling = '';
+    this.serviceUrls = [];
+    this.additionalServiceUrls = [];
+    this.conditions = [];
+    this.baseConfigurations = [];
+    this.appliedConfigurations = [];
+    this.yamlData = '';
+  }
+
   private getBackendObjects() {
-    this.backend
+    /*
+     * Replace the in-flight request so a slower response for a previous
+     * route or poll tick cannot overwrite the current service details.
+     */
+    this.requestSubscription.unsubscribe();
+    this.requestSubscription = this.backend
       .getLLMInferenceService(this.namespace, this.serviceName)
       .pipe(
         switchMap(llmInferenceService => {
@@ -119,13 +156,7 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
               }),
             );
         }),
-      )
-      .subscribe({
-        next: events => {
-          this.events = events || [];
-          this.cdr.detectChanges();
-        },
-        error: error => {
+        catchError(error => {
           console.error('Error loading the LLMInferenceService:', error);
           /*
            * Keep `detailsLoaded` untouched: the template dereferences the
@@ -138,18 +169,29 @@ export class LLMDetailsComponent implements OnInit, OnDestroy {
             this.loadingErrorMessage = $localize`Failed to load the LLMInferenceService. Retrying automatically.`;
           }
           this.cdr.detectChanges();
-        },
+          return EMPTY;
+        }),
+      )
+      .subscribe(events => {
+        this.events = events || [];
+        this.cdr.detectChanges();
       });
   }
 
   private parseFetchedObject(llmInferenceService: LLMInferenceServiceK8s) {
     const specification = llmInferenceService.spec;
+    const prefill = specification?.prefill;
 
     this.status = getLLMInferenceServiceStatus(llmInferenceService);
-    this.topology = deriveTopology(specification);
+    this.topology = deriveTopology(llmInferenceService);
     this.parallelism = summarizeParallelism(specification);
     this.router = summarizeRouter(specification);
     this.scaling = summarizeScaling(specification);
+    this.prefillReplicas = prefill?.replicas;
+    this.prefillParallelism = summarizeParallelism(prefill);
+    this.prefillScaling = summarizeScaling(prefill);
+    this.serviceUrls = uniqueServiceUrls(llmInferenceService.status);
+    this.additionalServiceUrls = this.serviceUrls.slice(1);
     this.conditions = llmInferenceService.status?.conditions || [];
     this.baseConfigurations = baseConfigurationNames(specification);
     this.appliedConfigurations = appliedConfigurationNames(llmInferenceService);

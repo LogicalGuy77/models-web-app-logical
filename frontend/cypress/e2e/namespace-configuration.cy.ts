@@ -10,11 +10,7 @@ describe('Models Web App - Namespace Configuration Tests', () => {
       },
     }).as('getConfig');
 
-    // Default empty response for inference services
-    cy.intercept('GET', '/api/namespaces/*/inferenceservices', {
-      statusCode: 200,
-      body: [],
-    }).as('getInferenceServices');
+    cy.mockSse({ inferenceServices: [] });
   });
 
   describe('Default Behavior (All Namespaces)', () => {
@@ -120,8 +116,19 @@ describe('Models Web App - Namespace Configuration Tests', () => {
         cy.get('.namespace-value').should('contain', 'kubeflow-user');
       });
 
-      // The inference services API should be called with the auto-selected namespace
-      cy.wait('@getInferenceServices');
+      cy.window().should(win => {
+        const sources = (
+          win as Window & { __cypressSseSources?: Array<{ url: string }> }
+        ).__cypressSseSources;
+        expect(
+          sources?.some(source =>
+            /\/namespaces\/kubeflow-user\/inferenceservices\/?$/.test(
+              source.url,
+            ),
+          ),
+          'SSE list watch for the auto-selected namespace',
+        ).to.equal(true);
+      });
     });
   });
 
@@ -329,6 +336,18 @@ describe('Models Web App - Namespace Configuration Tests', () => {
   });
 
   describe('Integration with Main App', () => {
+    const kubeflowUserService = {
+      metadata: {
+        name: 'test-model',
+        namespace: 'kubeflow-user',
+        creationTimestamp: '2024-01-01T00:00:00Z',
+      },
+      spec: {
+        predictor: { sklearn: { storageUri: 's3://bucket/model' } },
+      },
+      status: { url: 'http://test-model.example.com' },
+    };
+
     beforeEach(() => {
       cy.intercept('GET', '/api/config/namespaces', {
         statusCode: 200,
@@ -339,28 +358,12 @@ describe('Models Web App - Namespace Configuration Tests', () => {
         },
       }).as('getNamespaces');
 
-      // Intercept specific namespace API calls for data loading
-      cy.intercept('GET', '/api/namespaces/kubeflow-user/inferenceservices', {
-        statusCode: 200,
-        body: [
-          {
-            metadata: {
-              name: 'test-model',
-              namespace: 'kubeflow-user',
-              creationTimestamp: '2024-01-01T00:00:00Z',
-            },
-            spec: {
-              predictor: { sklearn: { storageUri: 's3://bucket/model' } },
-            },
-            status: { url: 'http://test-model.example.com' },
-          },
-        ],
-      }).as('getKubeflowUserServices');
-
-      cy.intercept('GET', '/api/namespaces/test-ns-1/inferenceservices', {
-        statusCode: 200,
-        body: [],
-      }).as('getTestNs1Services');
+      cy.mockSse({
+        byNamespace: {
+          'kubeflow-user': [kubeflowUserService],
+          'test-ns-1': [],
+        },
+      });
 
       cy.visit('/');
       cy.wait('@getConfig');
@@ -368,41 +371,23 @@ describe('Models Web App - Namespace Configuration Tests', () => {
     });
 
     it('should trigger inference services refresh when namespace changes', () => {
-      // First, make sure we're starting from a known state
-      // Select the first namespace to trigger the initial API call
-      cy.get('app-namespace-select').within(() => {
-        cy.get('mat-select').click();
-      });
-      cy.get('mat-option').contains('kubeflow-user').click();
+      cy.get('lib-table', { timeout: 10000 }).should('contain', 'test-model');
 
-      // Should trigger API call for selected namespace
-      cy.wait('@getKubeflowUserServices', { timeout: 5000 });
-
-      // Verify the table updates (may be empty or with data)
-      cy.get('lib-table', { timeout: 10000 }).should('be.visible');
-
-      // Now change to different namespace
       cy.get('app-namespace-select').within(() => {
         cy.get('mat-select').click();
       });
       cy.get('mat-option').contains('test-ns-1').click();
 
-      cy.wait('@getTestNs1Services', { timeout: 5000 });
+      cy.get('lib-table', { timeout: 10000 }).within(() => {
+        cy.contains('No rows to display').should('be.visible');
+      });
 
-      // Table should still be visible
-      cy.get('lib-table', { timeout: 10000 }).should('be.visible');
-
-      // Change back to kubeflow-user to verify it can switch again
       cy.get('app-namespace-select').within(() => {
         cy.get('mat-select').click();
       });
       cy.get('mat-option').contains('kubeflow-user').click();
 
-      // This should make another call
-      cy.wait('@getKubeflowUserServices', { timeout: 5000 });
-
-      // Table should still be visible
-      cy.get('lib-table', { timeout: 10000 }).should('be.visible');
+      cy.get('lib-table', { timeout: 10000 }).should('contain', 'test-model');
     });
 
     it('should update "New Endpoint" button namespace context', () => {
