@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { InferenceServiceK8s } from '../types/kfserving/v1beta1';
 import { InferenceGraphK8s } from '../types/kfserving/v1alpha1';
+import { LLMInferenceServiceK8s } from '../types/kfserving/llm-inference-service';
 import {
   MWABackendResponse,
   InferenceServiceLogs,
@@ -125,6 +126,68 @@ export class MWABackendService extends BackendService {
     const name = inferenceGraph.metadata!.name;
     const namespace = inferenceGraph.metadata!.namespace;
     const url = `api/namespaces/${namespace}/inferencegraphs/${name}/events`;
+
+    return this.http.get<MWABackendResponse>(url).pipe(
+      catchError(error => this.handleError(error, false)),
+      map((resp: MWABackendResponse) => resp.events),
+    );
+  }
+
+  /*
+   * LLMInferenceService GETters
+   */
+  public getLLMInferenceService(
+    namespace: string,
+    name: string,
+  ): Observable<LLMInferenceServiceK8s> {
+    const url = `api/namespaces/${namespace}/llminferenceservices/${name}`;
+
+    return this.http.get<MWABackendResponse>(url).pipe(
+      catchError(error => this.handleError(error)),
+      map((resp: MWABackendResponse) => {
+        return resp.llmInferenceService;
+      }),
+    );
+  }
+
+  private getLLMInferenceServicesSingleNamespace(
+    namespace: string,
+  ): Observable<LLMInferenceServiceK8s[]> {
+    const url = `api/namespaces/${namespace}/llminferenceservices`;
+
+    return this.http.get<MWABackendResponse>(url).pipe(
+      catchError(error => this.handleError(error)),
+      map((resp: MWABackendResponse) => {
+        return resp.llmInferenceServices;
+      }),
+    );
+  }
+
+  private getLLMInferenceServicesAllNamespaces(
+    namespaces: string[],
+  ): Observable<LLMInferenceServiceK8s[]> {
+    return this.getObjectsAllNamespaces(
+      this.getLLMInferenceServicesSingleNamespace.bind(this),
+      namespaces,
+    );
+  }
+
+  public getLLMInferenceServices(
+    namespace: string | string[],
+  ): Observable<LLMInferenceServiceK8s[]> {
+    if (Array.isArray(namespace)) {
+      return this.getLLMInferenceServicesAllNamespaces(namespace);
+    }
+
+    return this.getLLMInferenceServicesSingleNamespace(namespace);
+  }
+
+  public getLLMInferenceServiceEvents(
+    llmInferenceService: LLMInferenceServiceK8s,
+  ): Observable<EventObject[]> {
+    const name = llmInferenceService.metadata!.name;
+    const namespace = llmInferenceService.metadata!.namespace;
+    const url = `api/namespaces/${namespace}/llminferenceservices/${name}/events`;
 
     return this.http.get<MWABackendResponse>(url).pipe(
       catchError(error => this.handleError(error, false)),

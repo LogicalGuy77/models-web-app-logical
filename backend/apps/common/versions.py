@@ -59,6 +59,27 @@ def inference_service_gvk():
     }
 
 
+LLM_INFERENCE_SERVICE_GROUP = "serving.kserve.io"
+# Newest first: v1alpha2 is the storage version on current KServe releases,
+# while older clusters may only serve v1alpha1.
+LLM_INFERENCE_SERVICE_VERSIONS = ["v1alpha2", "v1alpha1"]
+
+
+def llm_inference_service_group_version_kind(version):
+    """
+    Return the group, version and kind for an LLMInferenceService.
+
+    The caller supplies the API version because clusters differ in which
+    versions of the resource the API server serves; the route layer detects
+    the served version at runtime and passes it here.
+    """
+    return {
+        "group": LLM_INFERENCE_SERVICE_GROUP,
+        "version": version,
+        "kind": "llminferenceservices",
+    }
+
+
 def inference_graph_gvk():
     """
     Return the GVK needed for an InferenceGraph.

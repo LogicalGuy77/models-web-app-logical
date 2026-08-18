@@ -1,4 +1,59 @@
 describe('Models Web App - Model Deletion Tests', () => {
+  const inferenceServices = [
+    {
+      metadata: {
+        name: 'test-sklearn-model',
+        namespace: 'kubeflow-user',
+        creationTimestamp: '2024-01-15T10:30:00Z',
+      },
+      spec: {
+        predictor: {
+          sklearn: {
+            storageUri: 'gs://test-bucket/sklearn-model',
+            runtimeVersion: '0.24.1',
+            protocolVersion: 'v1',
+          },
+        },
+      },
+      status: {
+        conditions: [
+          {
+            type: 'Ready',
+            status: 'True',
+            lastTransitionTime: '2024-01-15T10:35:00Z',
+          },
+        ],
+        url: 'http://test-sklearn-model.kubeflow-user.example.com',
+      },
+    },
+    {
+      metadata: {
+        name: 'test-tensorflow-model',
+        namespace: 'kubeflow-user',
+        creationTimestamp: '2024-01-15T11:00:00Z',
+      },
+      spec: {
+        predictor: {
+          tensorflow: {
+            storageUri: 'gs://test-bucket/tensorflow-model',
+            runtimeVersion: '2.8.0',
+            protocolVersion: 'v1',
+          },
+        },
+      },
+      status: {
+        conditions: [
+          {
+            type: 'Ready',
+            status: 'True',
+            lastTransitionTime: '2024-01-15T11:05:00Z',
+          },
+        ],
+        url: 'http://test-tensorflow-model.kubeflow-user.example.com',
+      },
+    },
+  ];
+
   beforeEach(() => {
     // Mock the configuration API that's loaded during app initialization
     cy.intercept('GET', '/api/config', {
@@ -18,65 +73,7 @@ describe('Models Web App - Model Deletion Tests', () => {
       },
     }).as('getNamespaces');
 
-    // Mock inference services with sample data for deletion testing
-    cy.intercept('GET', '/api/namespaces/kubeflow-user/inferenceservices', {
-      statusCode: 200,
-      body: [
-        {
-          metadata: {
-            name: 'test-sklearn-model',
-            namespace: 'kubeflow-user',
-            creationTimestamp: '2024-01-15T10:30:00Z',
-          },
-          spec: {
-            predictor: {
-              sklearn: {
-                storageUri: 'gs://test-bucket/sklearn-model',
-                runtimeVersion: '0.24.1',
-                protocolVersion: 'v1',
-              },
-            },
-          },
-          status: {
-            conditions: [
-              {
-                type: 'Ready',
-                status: 'True',
-                lastTransitionTime: '2024-01-15T10:35:00Z',
-              },
-            ],
-            url: 'http://test-sklearn-model.kubeflow-user.example.com',
-          },
-        },
-        {
-          metadata: {
-            name: 'test-tensorflow-model',
-            namespace: 'kubeflow-user',
-            creationTimestamp: '2024-01-15T11:00:00Z',
-          },
-          spec: {
-            predictor: {
-              tensorflow: {
-                storageUri: 'gs://test-bucket/tensorflow-model',
-                runtimeVersion: '2.8.0',
-                protocolVersion: 'v1',
-              },
-            },
-          },
-          status: {
-            conditions: [
-              {
-                type: 'Ready',
-                status: 'True',
-                lastTransitionTime: '2024-01-15T11:05:00Z',
-              },
-            ],
-            url: 'http://test-tensorflow-model.kubeflow-user.example.com',
-          },
-        },
-      ],
-    }).as('getInferenceServicesWithData');
-
+    cy.mockSse({ inferenceServices });
     cy.visit('/');
     cy.wait('@getConfig');
     cy.wait('@getNamespaces');
@@ -91,20 +88,14 @@ describe('Models Web App - Model Deletion Tests', () => {
   });
 
   it('should display inference services table', () => {
-    // Wait for inference services to load
-    cy.wait('@getInferenceServicesWithData', { timeout: 10000 });
-
-    // Verify table is present
     cy.get('lib-table', { timeout: 5000 }).should('exist');
+    cy.get('lib-table').should('contain', 'test-sklearn-model');
   });
 
   it('should display models when data is loaded', () => {
-    // Wait for inference services to load
-    cy.wait('@getInferenceServicesWithData', { timeout: 10000 });
-
-    // Verify the table component exists and has data
     cy.get('lib-table').should('be.visible');
-    // Check for table rows
+    cy.get('lib-table').should('contain', 'test-sklearn-model');
+    cy.get('lib-table').should('contain', 'test-tensorflow-model');
     cy.get('lib-table .mat-row, lib-table tr').should(
       'have.length.greaterThan',
       0,
@@ -112,13 +103,9 @@ describe('Models Web App - Model Deletion Tests', () => {
   });
 
   it('should handle table interactions', () => {
-    // Wait for inference services to load
-    cy.wait('@getInferenceServicesWithData', { timeout: 10000 });
-
-    // Verify table has content
     cy.get('lib-table', { timeout: 5000 }).should('be.visible');
+    cy.get('lib-table').should('contain', 'test-sklearn-model');
 
-    // Try to find actionable elements in the table
     cy.get('lib-table button, lib-table [role="button"]').should(
       'have.length.greaterThan',
       0,
@@ -126,10 +113,9 @@ describe('Models Web App - Model Deletion Tests', () => {
   });
 
   it('should have properly structured table layout', () => {
-    cy.wait('@getInferenceServicesWithData', { timeout: 10000 });
+    cy.get('lib-table').should('contain', 'test-sklearn-model');
 
     cy.get('lib-table').within(() => {
-      // Check for table header elements
       cy.get('.mat-header-row, thead, [role="columnheader"]', {
         timeout: 5000,
       }).should('exist');

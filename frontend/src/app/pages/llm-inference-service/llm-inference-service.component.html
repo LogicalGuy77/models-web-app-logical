@@ -1,0 +1,24 @@
+<div class="lib-content-wrapper">
+  <lib-title-actions-toolbar
+    title="LLMInferenceServices"
+    [buttons]="buttons"
+    i18n-title
+  >
+    <!-- Standalone mode: use custom namespace selector when Kubeflow dashboard is not connected -->
+    <app-namespace-select
+      *ngIf="
+        (namespaceService.dashboardConnected$ | async) ===
+        dashboardDisconnectedState
+      "
+    ></app-namespace-select>
+  </lib-title-actions-toolbar>
+
+  <div class="page-padding lib-flex-grow lib-overflow-auto">
+    <lib-table
+      [config]="config"
+      [data]="llmInferenceServices"
+      [trackByFn]="llmInferenceServiceTrackByFn"
+      (actionsEmitter)="reactToAction($event)"
+    ></lib-table>
+  </div>
+</div>

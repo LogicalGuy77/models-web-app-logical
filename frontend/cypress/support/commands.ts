@@ -1,3 +1,10 @@
+import {
+  emitSseOnWindow,
+  setSseMockOptions,
+  SseMockOptions,
+  SseWatchEvent,
+} from './sse-mock';
+
 declare global {
   namespace Cypress {
     interface Chainable {
@@ -11,6 +18,17 @@ declare global {
        * Custom command to wait for Angular to be ready
        */
       waitForAngular(): Chainable<void>;
+
+      /**
+       * Configure InferenceService data delivered over the mocked EventSource.
+       * Must run before cy.visit().
+       */
+      mockSse(options?: SseMockOptions): Chainable<void>;
+
+      /**
+       * Push a watch event to an open mocked EventSource.
+       */
+      emitSse(event: SseWatchEvent, urlIncludes?: string): Chainable<void>;
     }
   }
 }
@@ -43,5 +61,22 @@ Cypress.Commands.add('waitForAngular', () => {
     });
   });
 });
+
+Cypress.Commands.add('mockSse', (options: SseMockOptions = {}) => {
+  setSseMockOptions(options);
+});
+
+Cypress.Commands.add(
+  'emitSse',
+  (event: SseWatchEvent, urlIncludes?: string) => {
+    cy.window().then(win => {
+      const emitted = emitSseOnWindow(win, event, urlIncludes);
+      expect(
+        emitted,
+        'at least one open EventSource matching the watch URL',
+      ).to.be.greaterThan(0);
+    });
+  },
+);
 
 export {};

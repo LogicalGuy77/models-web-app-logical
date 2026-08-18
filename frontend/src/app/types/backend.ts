@@ -2,12 +2,15 @@ import { BackendResponse, Status, STATUS_TYPE, K8sObject } from 'kubeflow';
 import { EventObject } from './event';
 import { InferenceServiceK8s } from './kfserving/v1beta1';
 import { InferenceGraphK8s } from './kfserving/v1alpha1';
+import { LLMInferenceServiceK8s } from './kfserving/llm-inference-service';
 
 export interface MWABackendResponse extends BackendResponse {
   inferenceServices?: InferenceServiceK8s[];
   inferenceService?: InferenceServiceK8s;
   inferenceGraphs?: InferenceGraphK8s[];
   inferenceGraph?: InferenceGraphK8s;
+  llmInferenceServices?: LLMInferenceServiceK8s[];
+  llmInferenceService?: LLMInferenceServiceK8s;
   createdResources?: KServeResourceIdentity[];
   failedDocumentIndex?: number;
   failedResource?: KServeResourceIdentity;

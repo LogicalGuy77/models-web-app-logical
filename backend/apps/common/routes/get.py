@@ -1,6 +1,7 @@
 """GET request handlers."""
 
 from flask import request
+from kubernetes.client.rest import ApiException
 
 from kubeflow.kubeflow.crud_backend import api, logging
 
@@ -179,6 +180,76 @@ def get_inference_graph(namespace, name):
 def get_inference_graph_events(namespace, name):
     """Return events for an InferenceGraph."""
     field_selector = api.events_field_selector("InferenceGraph", name)
+
+    events = api.events.list_events(namespace, field_selector).items
+
+    return api.success_response(
+        "events",
+        api.serialize(events),
+    )
+
+
+# The API server may serve either LLMInferenceService version. The first
+# request probes for the served version; every later request reuses the
+# detected value. Each worker process probes at most twice.
+_detected_llm_inference_service_version = None
+
+
+def _llm_inference_service_group_version_kind(namespace):
+    """Return the group, version and kind, detecting the served version."""
+    global _detected_llm_inference_service_version
+
+    if _detected_llm_inference_service_version is not None:
+        return versions.llm_inference_service_group_version_kind(
+            _detected_llm_inference_service_version
+        )
+
+    last_error = None
+    for candidate in versions.LLM_INFERENCE_SERVICE_VERSIONS:
+        group_version_kind = versions.llm_inference_service_group_version_kind(
+            candidate
+        )
+        try:
+            api.list_custom_rsrc(**group_version_kind, namespace=namespace)
+        except ApiException as error:
+            if error.status != 404:
+                raise
+            last_error = error
+            continue
+        _detected_llm_inference_service_version = candidate
+        log.info("Detected LLMInferenceService API version: %s", candidate)
+        return group_version_kind
+
+    raise last_error
+
+
+@bp.route("/api/namespaces/<namespace>/llminferenceservices")
+def get_llm_inference_services(namespace):
+    """Return a list of LLMInferenceService custom resources."""
+    group_version_kind = _llm_inference_service_group_version_kind(namespace)
+    llm_inference_services = api.list_custom_rsrc(
+        **group_version_kind, namespace=namespace
+    )
+
+    return api.success_response("llmInferenceServices", llm_inference_services["items"])
+
+
+@bp.route("/api/namespaces/<namespace>/llminferenceservices/<name>")
+def get_llm_inference_service(namespace, name):
+    """Return a single LLMInferenceService custom resource."""
+    llm_inference_service = api.get_custom_rsrc(
+        **_llm_inference_service_group_version_kind(namespace),
+        namespace=namespace,
+        name=name,
+    )
+
+    return api.success_response("llmInferenceService", llm_inference_service)
+
+
+@bp.route("/api/namespaces/<namespace>/llminferenceservices/<name>/events")
+def get_llm_inference_service_events(namespace, name):
+    """Return events that relate to an LLMInferenceService."""
+    field_selector = api.events_field_selector("LLMInferenceService", name)
 
     events = api.events.list_events(namespace, field_selector).items
 
