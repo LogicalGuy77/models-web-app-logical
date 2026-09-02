@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
     - frontend/**
+    - common/frontend/**
 jobs:
   frontend-format-linting-check:
     name: Code format and lint
@@ -15,7 +16,9 @@ jobs:
       with:
         node-version: 16
         cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
+        cache-dependency-path: |
+          frontend/package-lock.json
+          common/frontend/kubeflow-common-lib/package-lock.json
     - name: Format code
       run: |
         npm install prettier@2.8.8 --prefix ./frontend
@@ -36,14 +39,12 @@ jobs:
       with:
         node-version: 16
         cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
-    - name: Fetch Kubeflow and Build Common Library
+        cache-dependency-path: |
+          frontend/package-lock.json
+          common/frontend/kubeflow-common-lib/package-lock.json
+    - name: Build Common Library
       run: |
-        COMMIT=$(cat frontend/COMMIT)
-        cd /tmp && git clone https://github.com/kubeflow/notebooks.git
-        cd notebooks
-        git checkout $COMMIT
-        cd components/crud-web-apps/common/frontend/kubeflow-common-lib
+        cd common/frontend/kubeflow-common-lib
         npm ci --no-audit
         npm run build
         npm link ./dist/kubeflow
@@ -54,10 +55,10 @@ jobs:
         npm link kubeflow
         # Copy styles from kubeflow source to local styles directory
         mkdir -p ./src/styles/
-        cp -r /tmp/notebooks/components/crud-web-apps/common/frontend/kubeflow-common-lib/projects/kubeflow/src/styles/* ./src/styles/
+        cp -r ../common/frontend/kubeflow-common-lib/projects/kubeflow/src/styles/* ./src/styles/
         # Also copy to node_modules for the copyCSS script
         mkdir -p ./node_modules/kubeflow/styles/
-        cp -r /tmp/notebooks/components/crud-web-apps/common/frontend/kubeflow-common-lib/projects/kubeflow/src/styles/* ./node_modules/kubeflow/styles/
+        cp -r ../common/frontend/kubeflow-common-lib/projects/kubeflow/src/styles/* ./node_modules/kubeflow/styles/
     - name: Run Unit Tests
       run: |
         cd frontend
@@ -73,14 +74,12 @@ jobs:
       with:
         node-version: 16
         cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
-    - name: Fetch Kubeflow and Build Common Library
+        cache-dependency-path: |
+          frontend/package-lock.json
+          common/frontend/kubeflow-common-lib/package-lock.json
+    - name: Build Common Library
       run: |
-        COMMIT=$(cat frontend/COMMIT)
-        cd /tmp && git clone https://github.com/kubeflow/notebooks.git
-        cd notebooks
-        git checkout $COMMIT
-        cd components/crud-web-apps/common/frontend/kubeflow-common-lib
+        cd common/frontend/kubeflow-common-lib
         npm ci --no-audit
         npm run build
         npm link ./dist/kubeflow
@@ -91,13 +90,13 @@ jobs:
         npm link kubeflow
         # Copy styles from kubeflow source to local styles directory
         mkdir -p ./src/styles/
-        cp -r /tmp/notebooks/components/crud-web-apps/common/frontend/kubeflow-common-lib/projects/kubeflow/src/styles/* ./src/styles/
+        cp -r ../common/frontend/kubeflow-common-lib/projects/kubeflow/src/styles/* ./src/styles/
         # Also copy to node_modules for the copyCSS script
         mkdir -p ./node_modules/kubeflow/styles/
-        cp -r /tmp/notebooks/components/crud-web-apps/common/frontend/kubeflow-common-lib/projects/kubeflow/src/styles/* ./node_modules/kubeflow/styles/
+        cp -r ../common/frontend/kubeflow-common-lib/projects/kubeflow/src/styles/* ./node_modules/kubeflow/styles/
         # Copy assets as well
         mkdir -p ./node_modules/kubeflow/assets/
-        cp -r /tmp/notebooks/components/crud-web-apps/common/frontend/kubeflow-common-lib/projects/kubeflow/src/assets/* ./node_modules/kubeflow/assets/
+        cp -r ../common/frontend/kubeflow-common-lib/projects/kubeflow/src/assets/* ./node_modules/kubeflow/assets/
     - name: Run E2E Tests
       run: |
         cd frontend
