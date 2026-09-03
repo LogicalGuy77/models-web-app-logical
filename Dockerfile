@@ -12,7 +12,7 @@ FROM node:22-bookworm-slim AS frontend-kubeflow-lib
 
 WORKDIR /src
 COPY ./common/frontend/kubeflow-common-lib/package*.json ./
-RUN npm install
+RUN npm ci --no-audit
 
 COPY ./common/frontend/kubeflow-common-lib/ ./
 RUN npm run build
