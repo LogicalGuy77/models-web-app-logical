@@ -5,6 +5,30 @@ on:
     - frontend/**
     - common/frontend/**
 jobs:
+  common-frontend-checks:
+    name: Common Library Checks
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 16
+        cache: 'npm'
+        cache-dependency-path: common/frontend/kubeflow-common-lib/package-lock.json
+    - name: Install Common Library Dependencies
+      working-directory: common/frontend/kubeflow-common-lib
+      run: npm ci --no-audit
+    - name: Check Common Library Formatting
+      working-directory: common/frontend/kubeflow-common-lib
+      run: npm run format:check
+    - name: Lint Common Library
+      working-directory: common/frontend/kubeflow-common-lib
+      run: npm run lint-check
+    - name: Test Common Library
+      working-directory: common/frontend/kubeflow-common-lib
+      run: npm run test-ci
   frontend-format-linting-check:
     name: Code format and lint
     runs-on: ubuntu-latest
@@ -30,6 +54,7 @@ jobs:
         npm run lint-check
   frontend-unit-tests:
     name: Frontend Unit Tests
+    needs: common-frontend-checks
     runs-on: ubuntu-latest
     steps:
     - name: Check out code
@@ -65,6 +90,7 @@ jobs:
         npm run test:jest
   frontend-mock-tests:
     name: Frontend Mock Tests
+    needs: common-frontend-checks
     runs-on: ubuntu-latest
     steps:
     - name: Check out code

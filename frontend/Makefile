@@ -11,14 +11,10 @@ setup:
 	    echo "Expected common library at: $(COMMON_LIBRARY_DIRECTORY)"; \
 	    exit 1; \
 	fi
-	@if [ ! -d "$(COMMON_LIBRARY_DISTRIBUTION)" ]; then \
-	    echo ">> Building kubeflow-common-library"; \
-	    cd "$(COMMON_LIBRARY_DIRECTORY)" && \
+	@echo ">> Building kubeflow-common-library"
+	@cd "$(COMMON_LIBRARY_DIRECTORY)" && \
 	    npm install && \
-	    npm run build; \
-	else \
-	    echo ">> Kubeflow library already built"; \
-	fi
+	    npm run build
 	@if [ ! -d "node_modules" ]; then \
 	    echo ">> Installing frontend dependencies"; \
 	    npm install; \
