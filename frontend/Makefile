@@ -28,13 +28,9 @@ setup:
 	else \
 	    echo ">> Kubeflow library already linked"; \
 	fi
-	@if [ ! -d "src/styles" ] || [ ! -d "src/assets" ]; then \
-	    echo ">> Copying kubeflow styles and assets"; \
-	    npm run copyCSS; \
-	    npm run copyLibAssets; \
-	else \
-	    echo ">> Styles and assets already copied"; \
-	fi
+	@echo ">> Copying kubeflow styles and assets"
+	@npm run copyCSS
+	@npm run copyLibAssets
 	@echo "✔ Setup complete. Now run: npm run serve:simple or npm run build:watch"
 
 clean:

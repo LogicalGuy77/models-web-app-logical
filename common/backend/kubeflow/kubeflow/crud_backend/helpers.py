@@ -1,6 +1,7 @@
 """
 Common helper functions for handling k8s objects information
 """
+
 import datetime as dt
 import logging
 import os
@@ -24,7 +25,9 @@ def get_prefixed_index_html():
     with open(os.path.join(static_dir, "index.html"), "r") as f:
         index_html = f.read()
         index_prefixed = re.sub(
-            r"\<base href=\".*\".*\>", '<base href="%s">' % prefix, index_html,
+            r"\<base href=\".*\".*\>",
+            '<base href="%s">' % prefix,
+            index_html,
         )
 
         return index_prefixed

@@ -11,10 +11,14 @@ prettier-check:
 docker-build:
 	docker build -t ${IMG}:${TAG} .
 
+docker-smoke-test:
+	docker run --rm --entrypoint python ${IMG}:${TAG} -c \
+		'from kubernetes import config; config.load_incluster_config = lambda: None; config.load_kube_config = lambda: None; import entrypoint'
+
 docker-push:
 	docker push $(IMG):${TAG}
 
-.PHONY: docker-build-multi-arch
+.PHONY: docker-build docker-smoke-test docker-build-multi-arch
 docker-build-multi-arch: ##  Build multi-arch docker images with docker buildx
 	docker buildx build --platform ${ARCH} --tag ${IMG}:${TAG} .
 

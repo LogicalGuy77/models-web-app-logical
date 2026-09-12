@@ -39,8 +39,7 @@ def deserialize(json_obj, klass):
     try:
         return client.ApiClient()._ApiClient__deserialize(json_obj, klass)
     except ValueError as e:
-        raise ValueError("Failed to deserialize input into '%s': %s"
-                         % (klass, str(e)))
+        raise ValueError("Failed to deserialize input into '%s': %s" % (klass, str(e)))
 
 
 def serialize(obj):

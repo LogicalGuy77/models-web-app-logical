@@ -23,8 +23,11 @@ def serve_index(path="/"):
     log.info("Serving index.html for path: %s", path)
 
     no_cache = "no-cache, no-store, must-revalidate, max-age=0"
-    resp = Response(helpers.get_prefixed_index_html(), mimetype="text/html",
-                    headers={"Cache-Control": no_cache})
+    resp = Response(
+        helpers.get_prefixed_index_html(),
+        mimetype="text/html",
+        headers={"Cache-Control": no_cache},
+    )
 
     csrf.set_cookie(resp)
 

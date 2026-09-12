@@ -2,6 +2,7 @@ name: Frontend Test
 on:
   pull_request:
     paths:
+    - .github/workflows/test-node.yaml
     - frontend/**
     - common/frontend/**
 jobs:

@@ -44,6 +44,4 @@ def enable_metrics(app: Flask) -> None:
         metrics_decorator=no_authentication,
     )
     # add default metrics with info about app
-    metrics.info(
-        "app_info", "Application info", version=backend_version, app=app.name
-    )
+    metrics.info("app_info", "Application info", version=backend_version, app=app.name)

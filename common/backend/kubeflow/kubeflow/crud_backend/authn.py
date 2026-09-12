@@ -16,8 +16,12 @@ def get_username():
     else:
         user = request.headers[settings.USER_HEADER]
         username = user.replace(settings.USER_PREFIX, "")
-        log.debug("User: '%s' | Headers: '%s' '%s'",
-                  username, settings.USER_HEADER, settings.USER_PREFIX)
+        log.debug(
+            "User: '%s' | Headers: '%s' '%s'",
+            username,
+            settings.USER_HEADER,
+            settings.USER_PREFIX,
+        )
 
     return username
 

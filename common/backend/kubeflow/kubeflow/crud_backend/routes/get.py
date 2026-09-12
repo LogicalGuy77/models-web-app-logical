@@ -42,9 +42,7 @@ def get_default_storageclass():
             default_sc_annotation = annotations.get(key, "false")
 
             if default_sc_annotation == "true":
-                return api.success_response(
-                    "defaultStorageClass", sc.metadata.name
-                )
+                return api.success_response("defaultStorageClass", sc.metadata.name)
 
     # No StorageClass is default
     return api.success_response("defaultStorageClass", "")

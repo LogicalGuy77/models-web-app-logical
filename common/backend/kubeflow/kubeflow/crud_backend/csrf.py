@@ -78,9 +78,14 @@ def set_cookie(resp):
     if samesite not in SAMESITE_VALUES:
         samesite = "Strict"
 
-    resp.set_cookie(key=CSRF_COOKIE, value=cookie, samesite=samesite,
-                    httponly=False, secure=secure,
-                    path=current_app.config["PREFIX"])
+    resp.set_cookie(
+        key=CSRF_COOKIE,
+        value=cookie,
+        samesite=samesite,
+        httponly=False,
+        secure=secure,
+        path=current_app.config["PREFIX"],
+    )
 
     # Don't cache a response that sets a CSRF cookie
     no_cache = "no-cache, no-store, must-revalidate, max-age=0"
@@ -96,17 +101,17 @@ def check_endpoint():
 
     log.debug("Ensuring endpoint is CSRF protected: %s", request.path)
     if CSRF_COOKIE not in request.cookies:
-        raise Forbidden("Could not find CSRF cookie %s in the request."
-                        % CSRF_COOKIE)
+        raise Forbidden("Could not find CSRF cookie %s in the request." % CSRF_COOKIE)
 
     if CSRF_HEADER not in request.headers:
-        raise Forbidden("Could not detect CSRF protection header %s."
-                        % CSRF_HEADER)
+        raise Forbidden("Could not detect CSRF protection header %s." % CSRF_HEADER)
 
     header_token = request.headers[CSRF_HEADER]
     cookie_token = request.cookies[CSRF_COOKIE]
     if header_token != cookie_token:
-        raise Forbidden("CSRF check failed. Token in cookie %s doesn't match "
-                        "token in header %s." % (CSRF_COOKIE, CSRF_HEADER))
+        raise Forbidden(
+            "CSRF check failed. Token in cookie %s doesn't match "
+            "token in header %s." % (CSRF_COOKIE, CSRF_HEADER)
+        )
 
     return
